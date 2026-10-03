@@ -63,6 +63,7 @@ class BaileysClient extends EventEmitter {
         // disputa a sessão com o cliente novo e faz mensagens se perderem.
         if (this._destroyed) return;
         const { state, saveCreds } = await useMultiFileAuthState(this._sessionDir);
+        this._state = state;
 
         // Limpar socket anterior se existir — remover listeners E encerrar a
         // conexão websocket antiga. Sem o end(), o socket antigo pode continuar
@@ -99,6 +100,10 @@ class BaileysClient extends EventEmitter {
             if (qr) {
                 this.qrRetries++;
                 if (this.qrRetries > this.maxQrRetries) {
+                    // Encerra ANTES de emitir: sem isso o socket segue vivo, o
+                    // 408 dispara a reconexão interna e o cliente vira um órfão
+                    // gerando QR e disputando as credenciais com o cliente novo.
+                    await this.destroy();
                     this.emit('auth_failure', 'QR Code expirado');
                     return;
                 }
@@ -142,6 +147,15 @@ class BaileysClient extends EventEmitter {
                 }
 
                 if (this._destroyed) return;
+
+                // 408 antes do pareamento = WhatsApp esgotou os QRs sem ninguém
+                // ler. Reconectar só gera mais QR no vazio; encerra e deixa o
+                // usuário clicar em Conectar de novo.
+                if (statusCode === DisconnectReason.timedOut && !this._state?.creds?.me) {
+                    await this.destroy();
+                    this.emit('auth_failure', 'QR Code expirado');
+                    return;
+                }
 
                 // Demais casos (incl. 515 restartRequired, timeouts, etc): reconectar.
                 // 515 logo após parear é esperado e deve reconectar rápido.

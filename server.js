@@ -288,6 +288,15 @@ const hgpSessionPath = () => HGP_USES_BAILEYS
 
 const hgpTemSessaoSalva = () => {
     try {
+        if (HGP_USES_BAILEYS) {
+            // A pasta é criada já no primeiro QR; só conta como sessão salva
+            // depois do pareamento (creds.me). Senão o watchdog fica reabrindo
+            // conexão e gerando QR sem ninguém para ler.
+            const credsPath = path.join(hgpSessionPath(), 'creds.json');
+            if (!fsSync.existsSync(credsPath)) return false;
+            const creds = JSON.parse(fsSync.readFileSync(credsPath, 'utf8'));
+            return !!creds?.me?.id;
+        }
         return fsSync.existsSync(hgpSessionPath());
     } catch (e) {
         return false;
@@ -1268,9 +1277,15 @@ async function iniciarWhatsAppLegacy() {
 
     console.log(`[HGP] Iniciando cliente ${HGP_USES_BAILEYS ? 'Baileys' : 'whatsapp-web.js'}`);
 
+    // Eventos de um cliente que já foi substituído não podem mexer no estado
+    // global (nem resetar/derrubar o cliente atual).
+    const esteCliente = whatsappClient;
+    const ehAtual = () => whatsappClient === esteCliente;
+
     whatsappChatbotController = attachChatbot(whatsappClient, { managedByServer: true });
 
     whatsappClient.on('qr', async (qr) => {
+        if (!ehAtual()) return;
         whatsappState = 'connecting';
         whatsappLastError = null;
         currentQR = String(qr || '').startsWith('data:image/')
@@ -1285,6 +1300,7 @@ async function iniciarWhatsAppLegacy() {
     });
 
     whatsappClient.on('authenticated', async () => {
+        if (!ehAtual()) return;
         console.log('[HGP] WhatsApp autenticado — aguardando sincronização...');
         whatsappState = 'connecting';
         whatsappLastError = null;
@@ -1297,6 +1313,10 @@ async function iniciarWhatsAppLegacy() {
     });
 
     whatsappClient.on('ready', async () => {
+        if (!ehAtual()) {
+            try { await esteCliente.destroy(); } catch (e) {}
+            return;
+        }
         console.log('[HGP] WhatsApp conectado ✓');
         hgpClientReady = true;
         anexarWatchdogChrome(whatsappClient);
@@ -1304,6 +1324,7 @@ async function iniciarWhatsAppLegacy() {
     });
 
     whatsappClient.on('change_state', (state) => {
+        if (!ehAtual()) return;
         console.log('[HGP] change_state:', state);
         if (['CONFLICT', 'UNLAUNCHED', 'TIMEOUT'].includes(String(state || ''))) {
             forcarReconexaoHgp(`change_state:${state}`).catch(() => {});
@@ -1311,6 +1332,8 @@ async function iniciarWhatsAppLegacy() {
     });
 
     whatsappClient.on('auth_failure', async (message) => {
+        try { await esteCliente.destroy(); } catch (e) {}
+        if (!ehAtual()) return;
         console.error('[HGP] Falha de autenticação:', message);
         whatsappLastError = `Falha de autenticação do WhatsApp: ${message}`;
         await resetWhatsAppRuntime();
@@ -1318,11 +1341,10 @@ async function iniciarWhatsAppLegacy() {
     });
 
     whatsappClient.on('disconnected', async (reason) => {
+        try { await esteCliente.destroy(); } catch (e) {}
+        if (!ehAtual()) return;
         console.log('[HGP] WhatsApp desconectado:', reason);
         whatsappLastError = `WhatsApp desconectado: ${reason}`;
-        if (whatsappClient) {
-            try { await whatsappClient.destroy(); } catch (e) {}
-        }
         await resetWhatsAppRuntime();
         agendarReconexaoHgp(reason);
     });
@@ -1354,6 +1376,8 @@ async function iniciarWhatsAppLegacy() {
     });
 
     whatsappClient.initialize().catch(async (error) => {
+        try { await esteCliente.destroy(); } catch (e) {}
+        if (!ehAtual()) return;
         console.error('[HGP] Erro ao inicializar cliente:', error);
         whatsappLastError = formatWhatsAppError(error);
         await resetWhatsAppRuntime();
