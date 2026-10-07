@@ -415,6 +415,27 @@ function attachDynamicFlow(client, options = {}) {
                 await bloquearHospitalEVoltarMenu(sessionId, chatId);
                 return;
             }
+
+            // Já existe chamado em aberto para este contato? Não cria outro.
+            const [ativos] = await db.query(
+                `SELECT protocolo FROM chamados
+                 WHERE chat_origem = ? AND status IN ('pendente', 'aberto', 'em_atendimento')
+                 ORDER BY criado_em DESC LIMIT 1`,
+                [sessionId]
+            );
+            if (ativos.length > 0) {
+                log(`Chamado duplicado evitado — ${sessionId} já possui ${ativos[0].protocolo} em aberto`);
+                estados.delete(sessionId);
+                bloquearSessao(sessionId);
+                clearTimeout(inactivityTimers.get(sessionId));
+                inactivityTimers.delete(sessionId);
+                await client.sendMessage(
+                    chatId,
+                    `ℹ️ Você já possui um chamado em aberto: *${ativos[0].protocolo}*.\n\nAguarde o atendimento — as mensagens que enviar aqui serão anexadas a ele.`
+                );
+                return;
+            }
+
             const { id, protocolo } = await salvarChamado(est, sessionId, contato);
             await client.sendMessage(
                 chatId,
@@ -752,7 +773,7 @@ function attachDynamicFlow(client, options = {}) {
     // ──────────────────────────────────────────────────────────────────
     // HANDLER PRINCIPAL DE MENSAGENS
     // ──────────────────────────────────────────────────────────────────
-    const onMessage = async (msg) => {
+    const processarMensagem = async (msg) => {
         try {
             const sessionId = msg.from;
             if (!sessionId || sessionId === 'status@broadcast') return;
@@ -1108,6 +1129,21 @@ function attachDynamicFlow(client, options = {}) {
         } catch (e) {
             console.error(`[DynamicFlow:${instanciaNome}] Erro no handler:`, e);
         }
+    };
+
+    // Fila por sessão: mensagens do mesmo contato são processadas uma de cada vez.
+    // Sem isso, duas mensagens enviadas enquanto a validação da descrição (IA) ainda
+    // está rodando passam pelo mesmo estado e geram chamados duplicados.
+    const filasPorSessao = new Map();
+    const onMessage = (msg) => {
+        const chave = msg.from || '';
+        const anterior = filasPorSessao.get(chave) || Promise.resolve();
+        const atual = anterior.then(() => processarMensagem(msg)).catch(() => {});
+        filasPorSessao.set(chave, atual);
+        atual.then(() => {
+            if (filasPorSessao.get(chave) === atual) filasPorSessao.delete(chave);
+        });
+        return atual;
     };
 
     client.on('message', onMessage);
