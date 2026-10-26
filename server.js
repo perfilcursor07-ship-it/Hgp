@@ -38,6 +38,8 @@ const PORT = process.env.PORT || 3000;
 const execFileAsync = promisify(execFile);
 const CHATBOT_FILE_PATH = path.join(__dirname, 'chatbot.js');
 const transferenciasEmAndamento = new Map();
+const encaminhamentosEmAndamento = new Set();
+const encaminhamentosRecentes = new Map();
 
 // Middleware
 app.set('view engine', 'ejs');
@@ -148,6 +150,13 @@ function limparTransferenciasExpiradas() {
     const agora = Date.now();
     for (const [chave, expiraEm] of transferenciasEmAndamento.entries()) {
         if (expiraEm <= agora) transferenciasEmAndamento.delete(chave);
+    }
+}
+
+function limparEncaminhamentosRecentes() {
+    const agora = Date.now();
+    for (const [chave, expiraEm] of encaminhamentosRecentes.entries()) {
+        if (expiraEm <= agora) encaminhamentosRecentes.delete(chave);
     }
 }
 
@@ -3460,7 +3469,7 @@ app.get('/api/usuarios/gestores', isAuthenticated, async (req, res) => {
         }
 
         const [gestores] = await db.query(`
-            SELECT DISTINCT a.id, a.username, a.nome_completo, a.telefone
+            SELECT DISTINCT a.id, a.username, a.nome_completo, a.telefone, a.nivel_acesso
             FROM admins a
             INNER JOIN user_turnos t ON t.admin_id = a.id
             WHERE a.nivel_acesso IN ('administrador', 'gerenciador', 'gestor')
@@ -3973,17 +3982,31 @@ app.delete('/api/usuarios/:id', isAuthenticated, isAdmin, async (req, res) => {
 
 // API - Encaminhar chamado para técnico no mesmo turno (DEVE VIR ANTES DE :id/atender)
 app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
+    let chamadoId = null;
     try {
         if (req.session.nivelAcesso === 'visualizador') {
             return res.status(403).json({ success: false, message: 'Sem permissão para encaminhar chamados.' });
         }
 
-        const chamadoId = req.params.id;
-        const { gestorId } = req.body;
+        chamadoId = String(req.params.id);
+        const gestorId = Number(req.body?.gestorId);
+        if (!Number.isInteger(gestorId) || gestorId <= 0) {
+            return res.status(400).json({ success: false, message: 'Selecione o técnico para encaminhar o chamado.' });
+        }
+
+        limparEncaminhamentosRecentes();
+        const chaveRecente = `${chamadoId}:${gestorId}`;
+        if (encaminhamentosEmAndamento.has(chamadoId)) {
+            return res.status(409).json({ success: false, message: 'Este chamado já está sendo encaminhado. Aguarde.' });
+        }
+        if (encaminhamentosRecentes.has(chaveRecente)) {
+            return res.json({ success: true, message: 'Este encaminhamento já foi processado.' });
+        }
+        encaminhamentosEmAndamento.add(chamadoId);
 
         // Buscar dados do técnico destino
         const [gestor] = await db.query(
-            'SELECT id, nome_completo, telefone FROM admins WHERE id = ? AND nivel_acesso IN ("administrador", "gerenciador", "gestor") AND ativo = TRUE',
+            'SELECT id, username, nome_completo, telefone FROM admins WHERE id = ? AND nivel_acesso IN ("administrador", "gerenciador", "gestor") AND ativo = TRUE',
             [gestorId]
         );
 
@@ -3998,96 +4021,118 @@ app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Chamado não encontrado' });
         }
 
+        const nomeGestor = gestor[0].nome_completo || gestor[0].username || 'Técnico';
+        if (chamado[0].status === 'em_atendimento' && Number(chamado[0].atendente_id) === Number(gestor[0].id)) {
+            encaminhamentosRecentes.set(chaveRecente, Date.now() + 30000);
+            return res.json({ success: true, message: `O chamado já está encaminhado para ${nomeGestor}.` });
+        }
+
         // Atualizar chamado
-        await db.query(
+        const [atualizacao] = await db.query(
             `UPDATE chamados 
              SET status = 'em_atendimento',
                  atendente_id = ?,
                  atendente_nome = ?,
                  iniciado_em = NOW()
-             WHERE id = ?`,
-            [gestor[0].id, gestor[0].nome_completo, chamadoId]
+             WHERE id = ?
+               AND (status IS NULL OR status <> 'em_atendimento' OR atendente_id IS NULL OR atendente_id <> ?)`,
+            [gestor[0].id, nomeGestor, chamadoId, gestor[0].id]
         );
+
+        if (atualizacao.affectedRows === 0) {
+            encaminhamentosRecentes.set(chaveRecente, Date.now() + 30000);
+            return res.json({ success: true, message: `O chamado já está encaminhado para ${nomeGestor}.` });
+        }
 
         encerrarFluxoBotDoChamado(chamado[0]);
 
-        // Enviar WhatsApp para o gestor (usar cliente da instância do chamado)
-        const wppGes = await obterClienteWhatsAppParaChamado(chamado[0]);
-        if (wppGes.isConnected && wppGes.client && gestor[0].telefone) {
+        encaminhamentosRecentes.set(chaveRecente, Date.now() + 30000);
+        setImmediate(async () => {
             try {
-                const mensagemGestor = `🔔 *NOVO CHAMADO ATRIBUÍDO*\n\n` +
-                    `📌 *Protocolo:* ${chamado[0].protocolo}\n` +
-                    `👤 *Solicitante:* ${chamado[0].solicitante_nome}\n` +
-                    `🏢 *Setor:* ${chamado[0].setor}\n` +
-                    `📂 *Categoria:* ${chamado[0].categoria}\n` +
-                    `📝 *Descrição:* ${chamado[0].descricao}\n` +
-                    `📱 *Contato:* ${chamado[0].telefone_contato}\n\n` +
-                    `Este chamado foi encaminhado para você. Por favor, entre em contato com o solicitante.`;
-
-                // Normalizar número do gestor
-                let numeroGestor = gestor[0].telefone.replace(/\D/g, '');
-                if (!numeroGestor.startsWith('55')) {
-                    numeroGestor = '55' + numeroGestor;
-                }
-
-                console.log('Tentando enviar para gestor:', numeroGestor);
-
-                // Gerar variações do número (com e sem 9º dígito)
-                const variacoes = [numeroGestor];
-                if (numeroGestor.length === 13) {
-                    variacoes.push(numeroGestor.slice(0, 4) + numeroGestor.slice(5));
-                }
-                if (numeroGestor.length === 12) {
-                    variacoes.push(numeroGestor.slice(0, 4) + '9' + numeroGestor.slice(4));
-                }
-
-                let enviado = false;
-                for (const numero of variacoes) {
+                // Enviar WhatsApp para o gestor (usar cliente da instância do chamado)
+                const wppGes = await obterClienteWhatsAppParaChamado(chamado[0]);
+                if (wppGes.isConnected && wppGes.client && gestor[0].telefone) {
                     try {
-                        const numberId = await wppGes.client.getNumberId(numero);
-                        if (numberId && numberId._serialized) {
-                            console.log('ID do gestor encontrado:', numberId._serialized);
-                            await wppGes.client.sendMessage(numberId._serialized, mensagemGestor);
-                            console.log('Mensagem enviada com sucesso para o gestor');
-                            enviado = true;
-                            break;
+                        const mensagemGestor = `🔔 *NOVO CHAMADO ATRIBUÍDO*\n\n` +
+                            `📌 *Protocolo:* ${chamado[0].protocolo}\n` +
+                            `👤 *Solicitante:* ${chamado[0].solicitante_nome}\n` +
+                            `🏢 *Setor:* ${chamado[0].setor}\n` +
+                            `📂 *Categoria:* ${chamado[0].categoria}\n` +
+                            `📝 *Descrição:* ${chamado[0].descricao}\n` +
+                            `📱 *Contato:* ${chamado[0].telefone_contato}\n\n` +
+                            `Este chamado foi encaminhado para você. Por favor, entre em contato com o solicitante.`;
+
+                        // Normalizar número do gestor
+                        let numeroGestor = gestor[0].telefone.replace(/\D/g, '');
+                        if (!numeroGestor.startsWith('55')) {
+                            numeroGestor = '55' + numeroGestor;
                         }
-                    } catch (err) {
-                        console.log(`Tentativa com ${numero} falhou, tentando próxima variação...`);
+
+                        console.log('Tentando enviar para gestor:', numeroGestor);
+
+                        // Gerar variações do número (com e sem 9º dígito)
+                        const variacoes = [numeroGestor];
+                        if (numeroGestor.length === 13) {
+                            variacoes.push(numeroGestor.slice(0, 4) + numeroGestor.slice(5));
+                        }
+                        if (numeroGestor.length === 12) {
+                            variacoes.push(numeroGestor.slice(0, 4) + '9' + numeroGestor.slice(4));
+                        }
+
+                        let enviado = false;
+                        for (const numero of variacoes) {
+                            try {
+                                const numberId = await wppGes.client.getNumberId(numero);
+                                if (numberId && numberId._serialized) {
+                                    console.log('ID do gestor encontrado:', numberId._serialized);
+                                    await wppGes.client.sendMessage(numberId._serialized, mensagemGestor);
+                                    console.log('Mensagem enviada com sucesso para o gestor');
+                                    enviado = true;
+                                    break;
+                                }
+                            } catch (err) {
+                                console.log(`Tentativa com ${numero} falhou, tentando próxima variação...`);
+                            }
+                        }
+
+                        if (!enviado) {
+                            console.error('Número do gestor não encontrado no WhatsApp após todas as tentativas');
+                        }
+                    } catch (error) {
+                        console.error('Erro ao enviar WhatsApp para gestor:', error.message);
                     }
                 }
 
-                if (!enviado) {
-                    console.error('Número do gestor não encontrado no WhatsApp após todas as tentativas');
+                // Enviar WhatsApp para o solicitante
+                if (wppGes.isConnected && wppGes.client && chamado[0].chat_origem) {
+                    try {
+                        const mensagemSolicitante = `🔔 *ATUALIZAÇÃO DO CHAMADO*\n\n` +
+                            `📌 *Protocolo:* ${chamado[0].protocolo}\n` +
+                            `👤 *Atendente:* ${gestor[0].nome_completo}\n` +
+                            `📊 *Status:* Em Atendimento\n\n` +
+                            `Seu chamado foi encaminhado e está sendo atendido.`;
+
+                        await entregarMensagem(wppGes.client, chamado[0].chat_origem, mensagemSolicitante);
+                    } catch (error) {
+                        console.error('Erro ao enviar WhatsApp para solicitante:', error);
+                    }
                 }
             } catch (error) {
-                console.error('Erro ao enviar WhatsApp para gestor:', error.message);
+                console.error('Erro ao preparar notificações do encaminhamento:', error.message);
             }
-        }
-
-        // Enviar WhatsApp para o solicitante
-        const wppEnc = await obterClienteWhatsAppParaChamado(chamado[0]);
-        if (wppEnc.isConnected && wppEnc.client && chamado[0].chat_origem) {
-            try {
-                const mensagemSolicitante = `🔔 *ATUALIZAÇÃO DO CHAMADO*\n\n` +
-                    `📌 *Protocolo:* ${chamado[0].protocolo}\n` +
-                    `👤 *Atendente:* ${gestor[0].nome_completo}\n` +
-                    `📊 *Status:* Em Atendimento\n\n` +
-                    `Seu chamado foi encaminhado e está sendo atendido.`;
-
-                await entregarMensagem(wppEnc.client, chamado[0].chat_origem, mensagemSolicitante);
-            } catch (error) {
-                console.error('Erro ao enviar WhatsApp para solicitante:', error);
-            }
-        }
+        });
 
         res.json({ 
             success: true, 
-            message: `Chamado encaminhado para ${gestor[0].nome_completo} com sucesso` 
+            message: `Chamado encaminhado para ${nomeGestor} com sucesso`
         });
     } catch (error) {
         console.error('Erro ao encaminhar chamado:', error);
-        res.status(500).json({ success: false, message: 'Erro ao encaminhar chamado' });
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, message: 'Erro ao encaminhar chamado' });
+        }
+    } finally {
+        if (chamadoId) encaminhamentosEmAndamento.delete(chamadoId);
     }
 });
 

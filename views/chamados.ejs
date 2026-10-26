@@ -2708,7 +2708,7 @@
                     <div class="transfer-card" data-id="${g.id}" onclick="selecionarGestor(this, ${g.id})">
                         <div class="transfer-card-name">${escapeHtml(g.nome_completo || g.username)}</div>
                         <div class="transfer-card-info">
-                            <span class="transfer-card-nivel">${g.nivel_acesso}</span>
+                            <span class="transfer-card-nivel">${escapeHtml(g.nivel_acesso || 'Técnico no turno atual')}</span>
                         </div>
                     </div>`;
             });
@@ -2753,8 +2753,10 @@
             document.getElementById('modalEncaminhar').style.display = 'none';
         }
 
+        let encaminhandoChamado = false;
         async function encaminharChamado(event) {
             event.preventDefault();
+            if (encaminhandoChamado) return;
 
             const chamadoId = document.getElementById('encaminharChamadoId').value;
             const gestorId = document.getElementById('gestorId').value;
@@ -2762,6 +2764,14 @@
             if (!gestorId) {
                 mostrarToast('Por favor, selecione um gestor', 'error');
                 return;
+            }
+
+            encaminhandoChamado = true;
+            const btnSubmit = document.querySelector('#formEncaminhar button[type="submit"]');
+            const btnLabelOriginal = btnSubmit ? btnSubmit.textContent : '';
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = 'Encaminhando...';
             }
 
             try {
@@ -2775,13 +2785,20 @@
 
                 if (result.success) {
                     fecharModalEncaminhar();
-                    await atualizarOverviewChamados();
+                    mostrarToast('✓ ' + result.message, 'success');
+                    atualizarOverviewChamados().catch(error => console.error('Erro ao atualizar chamados:', error));
                 } else {
                     mostrarToast('✗ ' + result.message, 'error');
                 }
             } catch (error) {
                 mostrarToast('✗ Erro ao encaminhar chamado', 'error');
                 console.error(error);
+            } finally {
+                encaminhandoChamado = false;
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = btnLabelOriginal;
+                }
             }
         }
 
