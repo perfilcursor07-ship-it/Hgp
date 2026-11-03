@@ -151,7 +151,7 @@ class BaileysClient extends EventEmitter {
                 // 408 antes do pareamento = WhatsApp esgotou os QRs sem ninguém
                 // ler. Reconectar só gera mais QR no vazio; encerra e deixa o
                 // usuário clicar em Conectar de novo.
-                if (statusCode === DisconnectReason.timedOut && !this._state?.creds?.me) {
+                if (statusCode === DisconnectReason.timedOut && !this._state?.creds?.me?.id) {
                     await this.destroy();
                     this.emit('auth_failure', 'QR Code expirado');
                     return;
