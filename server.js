@@ -1707,11 +1707,11 @@ app.get('/unidades', isAuthenticated, isAdminOnly, async (req, res) => {
 
 app.post('/api/unidades', isAuthenticated, isAdminOnly, async (req, res) => {
     try {
-        const { nome, codigo, descricao, cor } = req.body;
+        const { nome, codigo, descricao, cor, triagem_centralizada } = req.body;
         if (!nome || !codigo) return res.json({ success: false, message: 'Nome e código são obrigatórios' });
         const [r] = await db.query(
-            `INSERT INTO unidades (nome, codigo, descricao, cor, ativo) VALUES (?, ?, ?, ?, TRUE)`,
-            [nome.trim(), codigo.trim().toUpperCase(), descricao || null, cor || '#25d366']
+            `INSERT INTO unidades (nome, codigo, descricao, cor, ativo, triagem_centralizada) VALUES (?, ?, ?, ?, TRUE, ?)`,
+            [nome.trim(), codigo.trim().toUpperCase(), descricao || null, cor || '#25d366', triagem_centralizada ? 1 : 0]
         );
         res.json({ success: true, id: r.insertId });
     } catch (e) {
