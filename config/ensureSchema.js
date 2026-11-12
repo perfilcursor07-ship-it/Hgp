@@ -568,9 +568,11 @@ async function ensureSchema(connection) {
         MODIFY COLUMN message_type VARCHAR(100) DEFAULT 'text'
     `);
 
+    // 'triagem' e 'devolvido' atendem a fila centralizada (ver migration 015).
+    // Só são usados por unidades com triagem_centralizada = TRUE.
     await connection.query(`
         ALTER TABLE chamados
-        MODIFY COLUMN status ENUM('pendente', 'aberto', 'em_atendimento', 'finalizado') DEFAULT 'pendente'
+        MODIFY COLUMN status ENUM('triagem', 'pendente', 'aberto', 'em_atendimento', 'finalizado', 'devolvido') DEFAULT 'pendente'
     `);
 
     await connection.query(`
@@ -788,6 +790,97 @@ async function ensureSchema(connection) {
     try {
         await connection.query(`ALTER TABLE chamados ADD COLUMN local_id INT NULL AFTER unidade_id, ADD INDEX idx_chamados_local (local_id)`);
     } catch (e) { /* coluna já existe */ }
+
+    // ── Fila centralizada com triagem (migration 015) ──
+    // Ligada por unidade. Default FALSE: unidades existentes (HGP) seguem
+    // o fluxo atual, sem triagem.
+    if (await ensureColumn(connection, 'unidades', 'triagem_centralizada',
+        'BOOLEAN NOT NULL DEFAULT FALSE AFTER ativo')) {
+        changes.push('unidades.triagem_centralizada');
+    }
+
+    // local_id = local de origem (preenchido pelo bot)
+    // fila_local_id = fila de destino, definida na triagem
+    if (await ensureColumn(connection, 'chamados', 'fila_local_id', 'INT NULL AFTER local_id')) {
+        changes.push('chamados.fila_local_id');
+        // Chamados anteriores à triagem: a fila atual é o próprio local de origem
+        await connection.query('UPDATE chamados SET fila_local_id = local_id WHERE local_id IS NOT NULL');
+    }
+    if (await ensureIndex(connection, 'chamados', 'idx_chamados_fila', 'INDEX idx_chamados_fila (fila_local_id)')) {
+        changes.push('chamados.idx_chamados_fila');
+    }
+
+    for (const [coluna, definicao] of [
+        ['validado_em', 'DATETIME NULL AFTER fila_local_id'],
+        ['validado_por', 'INT NULL AFTER validado_em'],
+        ['validado_por_nome', 'VARCHAR(255) NULL AFTER validado_por'],
+        ['motivo_devolucao', 'TEXT NULL AFTER validado_por_nome']
+    ]) {
+        if (await ensureColumn(connection, 'chamados', coluna, definicao)) {
+            changes.push(`chamados.${coluna}`);
+        }
+    }
+
+    // Técnico responsável principal x apoio dentro da fila
+    if (await ensureColumn(connection, 'admin_locais', 'papel',
+        `ENUM('responsavel','apoio') NOT NULL DEFAULT 'apoio'`)) {
+        changes.push('admin_locais.papel');
+    }
+
+    await connection.query(`
+        CREATE TABLE IF NOT EXISTS chamado_historico (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            chamado_id INT NOT NULL,
+            acao VARCHAR(40) NOT NULL,
+            de_valor VARCHAR(255) NULL,
+            para_valor VARCHAR(255) NULL,
+            observacao TEXT NULL,
+            admin_id INT NULL,
+            admin_nome VARCHAR(255) NULL,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_hist_chamado (chamado_id),
+            INDEX idx_hist_acao (acao),
+            INDEX idx_hist_criado (criado_em),
+            FOREIGN KEY (chamado_id) REFERENCES chamados(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(`
+        CREATE TABLE IF NOT EXISTS hgp_terceirizados (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nome VARCHAR(150) NOT NULL,
+            telefone VARCHAR(20) NOT NULL,
+            observacao VARCHAR(255) NULL,
+            ativo BOOLEAN DEFAULT TRUE,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_hgp_terc_tel (telefone)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(`
+        CREATE TABLE IF NOT EXISTS hgp_terceirizado_mensagens (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            terceirizado_id INT NOT NULL,
+            direcao ENUM('entrada', 'saida') NOT NULL,
+            mensagem TEXT NULL,
+            message_type VARCHAR(30) DEFAULT 'text',
+            media_url VARCHAR(255) NULL,
+            media_mime_type VARCHAR(120) NULL,
+            media_filename VARCHAR(255) NULL,
+            lida BOOLEAN DEFAULT FALSE,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_hgp_terc_msg (terceirizado_id, id),
+            FOREIGN KEY (terceirizado_id) REFERENCES hgp_terceirizados(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await connection.query(`
+        INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES
+        ('hgp_boas_vindas_ativa', 'false'),
+        ('hgp_boas_vindas_arquivo', ''),
+        ('hgp_boas_vindas_legenda', '')
+    `);
 
     try {
         changes.push(...await ensureFluxoSesauHospitais(connection));

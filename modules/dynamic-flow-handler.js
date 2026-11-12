@@ -10,6 +10,13 @@ const fs = require('fs/promises');
 const path = require('path');
 const db = require('../config/database');
 const { validarDescricao } = require('./ai-description-validator');
+const {
+    STATUS_TRIAGEM,
+    unidadeTemTriagem,
+    statusInicialChamado,
+    registrarHistorico,
+    tecnicosDaFilaCentral
+} = require('./fila-triagem');
 
 const ATTACH_FLAG = Symbol.for('hgp.dynamicFlow.attached');
 const CHAT_MEDIA_DIR = path.join(__dirname, '..', 'public', 'uploads', 'chat-media');
@@ -436,10 +443,13 @@ function attachDynamicFlow(client, options = {}) {
                 return;
             }
 
-            const { id, protocolo } = await salvarChamado(est, sessionId, contato);
+            const { id, protocolo, comTriagem } = await salvarChamado(est, sessionId, contato);
+            const avisoEquipe = comTriagem
+                ? 'Seu chamado está em *validação* pela nossa central e, em seguida, será encaminhado à equipe responsável.'
+                : 'Nossa equipe entrará em contato em breve.';
             await client.sendMessage(
                 chatId,
-                `✅ *Chamado criado com sucesso!*\n\n📌 Protocolo: *${protocolo}*\n📋 Categoria: ${est.categoria}\n\nNossa equipe entrará em contato em breve. Para acompanhar, guarde seu protocolo.\n\n_Envie CANCELAR a qualquer momento se precisar abrir um novo chamado._`
+                `✅ *Chamado criado com sucesso!*\n\n📌 Protocolo: *${protocolo}*\n📋 Categoria: ${est.categoria}\n\n${avisoEquipe} Para acompanhar, guarde seu protocolo.\n\n_Envie CANCELAR a qualquer momento se precisar abrir um novo chamado._`
             );
 
             // Salvar/atualizar perfil do usuário
@@ -611,12 +621,19 @@ function attachDynamicFlow(client, options = {}) {
             }
         }
 
+        // Unidade com triagem centralizada: o chamado entra na fila central
+        // (status 'triagem', sem fila de destino). Sem triagem: fluxo atual —
+        // 'pendente' e a fila de atendimento é o próprio local de origem.
+        const comTriagem = await unidadeTemTriagem(unidadeId);
+        const statusInicial = await statusInicialChamado(unidadeId);
+        const filaLocalId = comTriagem ? null : localId;
+
         const [result] = await db.query(
             `INSERT INTO chamados (
                 protocolo, categoria, solicitante_nome, nome_whatsapp, telefone_whatsapp,
                 setor, ip_maquina, cod_impressora, telefone_contato, email, cpf_solicitante, descricao, status, chat_origem,
-                unidade_id, local_id, instancia_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?, ?, ?)`,
+                unidade_id, local_id, fila_local_id, instancia_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 protocolo,
                 categoria,
@@ -630,14 +647,26 @@ function attachDynamicFlow(client, options = {}) {
                 dados.email || null,
                 dados.cpf || null,
                 descricaoFinal,
+                statusInicial,
                 sessionId,
                 unidadeId,
                 localId,
+                filaLocalId,
                 instanciaId
             ]
         );
 
-        return { id: result.insertId, protocolo };
+        await registrarHistorico({
+            chamadoId: result.insertId,
+            acao: 'criado',
+            para: statusInicial,
+            observacao: comTriagem
+                ? 'Chamado recebido na fila central, aguardando validação da triagem.'
+                : null,
+            adminNome: 'Chatbot'
+        });
+
+        return { id: result.insertId, protocolo, status: statusInicial, comTriagem };
     }
 
     function gerarVariacoesNumero(numeroBruto) {
@@ -682,6 +711,14 @@ function attachDynamicFlow(client, options = {}) {
             const diaSemana = agora.day();
             const horaAtual = agora.format('HH:mm:ss');
 
+            // Com triagem centralizada o aviso vai só para a equipe central
+            // (técnicos da unidade sem fila específica). Os técnicos das filas
+            // de destino são avisados na distribuição, após a validação.
+            const comTriagem = await unidadeTemTriagem(unidadeId);
+            const filtroCentral = comTriagem
+                ? ' AND NOT EXISTS (SELECT 1 FROM admin_locais al WHERE al.admin_id = a.id)'
+                : '';
+
             // Buscar técnicos vinculados à unidade QUE ESTÃO EM TURNO AGORA
             const [tecnicos] = await db.query(
                 `SELECT DISTINCT a.id, a.username, a.nome_completo, a.telefone
@@ -694,7 +731,7 @@ function attachDynamicFlow(client, options = {}) {
                    AND a.telefone IS NOT NULL AND a.telefone != ''
                    AND t.ativo = TRUE
                    AND t.dia_semana = ?
-                   AND ? BETWEEN t.hora_inicio AND t.hora_fim`,
+                   AND ? BETWEEN t.hora_inicio AND t.hora_fim${filtroCentral}`,
                 [unidadeId, diaSemana, horaAtual]
             );
 
@@ -718,7 +755,7 @@ function attachDynamicFlow(client, options = {}) {
                          WHERE au.unidade_id = ?
                            AND a.ativo = TRUE
                            AND a.nivel_acesso IN ('administrador', 'gerenciador', 'gestor')
-                           AND a.telefone IS NOT NULL AND a.telefone != ''`,
+                           AND a.telefone IS NOT NULL AND a.telefone != ''${filtroCentral}`,
                         [unidadeId]
                     );
                     listaFinal = todos;
@@ -734,7 +771,9 @@ function attachDynamicFlow(client, options = {}) {
             }
 
             const mensagem = [
-                `🆕 *NOVO CHAMADO — ${chamado.protocolo}*`,
+                comTriagem
+                    ? `🆕 *NOVO CHAMADO NA FILA CENTRAL — ${chamado.protocolo}*`
+                    : `🆕 *NOVO CHAMADO — ${chamado.protocolo}*`,
                 ``,
                 `📋 *Categoria:* ${chamado.categoria}`,
                 `👤 *Solicitante:* ${dadosForm.nome_completo || 'N/I'}`,
@@ -749,7 +788,9 @@ function attachDynamicFlow(client, options = {}) {
                 `📝 *Descrição:*`,
                 dadosForm.descricao || 'Sem descrição',
                 ``,
-                `_Acesse o sistema para atender._`
+                comTriagem
+                    ? `_Acesse o sistema para validar e distribuir este chamado._`
+                    : `_Acesse o sistema para atender._`
             ].filter(Boolean).join('\n');
 
             for (const tec of listaFinal) {

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comunicação HGP</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .hgp-note { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.45; margin-bottom:16px; }
+        .hgp-tabs { display:flex; gap:8px; margin-bottom:16px; }
+        .hgp-tab { border:1px solid #e2e8f0; background:#fff; color:#334155; border-radius:999px; padding:8px 14px; font-weight:700; cursor:pointer; }
+        .hgp-tab.active { background:#0f766e; color:#fff; border-color:#0f766e; }
+        .hgp-pane { display:none; }
+        .hgp-pane.active { display:block; }
+        .hgp-grid { display:grid; grid-template-columns: 320px 1fr; gap:16px; min-height: 62vh; }
+        .hgp-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; min-height:0; }
+        .hgp-card h2 { margin:0; font-size:16px; }
+        .hgp-pad { padding:14px; }
+        .hgp-list { overflow:auto; flex:1; }
+        .hgp-contato { width:100%; text-align:left; border:0; border-bottom:1px solid #f1f5f9; background:#fff; padding:12px 14px; cursor:pointer; }
+        .hgp-contato.active { background:#f0fdfa; }
+        .hgp-contato strong { display:block; color:#0f172a; }
+        .hgp-contato small { color:#64748b; }
+        .hgp-badge { display:inline-flex; min-width:18px; height:18px; padding:0 6px; border-radius:999px; background:#ef4444; color:#fff; font-size:11px; align-items:center; justify-content:center; margin-left:6px; }
+        .hgp-off { color:#b45309; font-size:11px; font-weight:700; }
+        .hgp-chat { display:flex; flex-direction:column; min-height:520px; }
+        .hgp-msgs { flex:1; overflow:auto; padding:16px; background:#f8fafc; display:flex; flex-direction:column; gap:8px; }
+        .hgp-bubble { max-width:78%; padding:8px 10px; border-radius:12px; font-size:14px; line-height:1.4; white-space:pre-wrap; word-break:break-word; }
+        .hgp-bubble.entrada { align-self:flex-start; background:#fff; border:1px solid #e2e8f0; }
+        .hgp-bubble.saida { align-self:flex-end; background:#dcfce7; }
+        .hgp-bubble time { display:block; margin-top:4px; font-size:11px; color:#94a3b8; }
+        .hgp-bubble img { max-width:220px; border-radius:8px; display:block; margin-bottom:6px; }
+        .hgp-compose { display:flex; gap:8px; padding:12px; border-top:1px solid #e2e8f0; }
+        .hgp-compose textarea { flex:1; resize:none; min-height:44px; border:1px solid #e2e8f0; border-radius:10px; padding:10px; font:inherit; }
+        .hgp-form { display:grid; gap:8px; }
+        .hgp-form input, .hgp-form textarea { width:100%; border:1px solid #e2e8f0; border-radius:10px; padding:10px; font:inherit; }
+        .hgp-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        .hgp-status { min-height:20px; font-size:13px; margin-top:8px; }
+        .hgp-status.ok { color:#047857; }
+        .hgp-status.err { color:#b91c1c; }
+        .hgp-preview { margin-top:12px; max-width:320px; border-radius:12px; border:1px solid #e2e8f0; }
+        .hgp-empty { color:#94a3b8; padding:24px; text-align:center; }
+        @media (max-width: 900px) {
+            .hgp-grid { grid-template-columns: 1fr; }
+            .hgp-chat { min-height: 420px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <%- include('partials/sidebar', { activePage: 'hgp', username, role: nivelAcesso === 'administrador' ? 'Administrador' : (nivelAcesso === 'gerenciador' ? 'Gerenciador' : 'Gestor'), isAdmin: nivelAcesso === 'administrador' || nivelAcesso === 'gerenciador', nivelAcesso: nivelAcesso || 'gestor' }) %>
+        <main class="main-content">
+            <div class="topbar">
+                <div class="topbar-title-group">
+                    <button class="menu-toggle" onclick="document.body.classList.toggle('sidebar-open')" aria-label="Abrir menu"><span></span><span></span><span></span></button>
+                    <h2>Comunicação HGP</h2>
+                </div>
+            </div>
+            <div class="content">
+                <div class="hgp-note">Estas opções valem somente para o WhatsApp do HGP. A SESAU continua no fluxo dela, sem esta aba e sem esta imagem.</div>
+                <div class="hgp-tabs">
+                    <button type="button" class="hgp-tab active" data-pane="terceiros">Terceirizados</button>
+                    <button type="button" class="hgp-tab" data-pane="comunicado">Imagem de boas-vindas</button>
+                </div>
+
+                <section id="pane-terceiros" class="hgp-pane active">
+                    <div class="hgp-grid">
+                        <div class="hgp-card">
+                            <div class="hgp-pad" style="border-bottom:1px solid #f1f5f9;">
+                                <h2>Números sem bot</h2>
+                                <p style="margin:6px 0 10px; color:#64748b; font-size:13px;">Quem estiver nesta lista não recebe menu nem abre chamado. A conversa fica aqui.</p>
+                                <form id="formTerceiro" class="hgp-form">
+                                    <input id="terNome" placeholder="Nome" required maxlength="150">
+                                    <input id="terTelefone" placeholder="Telefone com DDD" required>
+                                    <input id="terObs" placeholder="Observação (opcional)" maxlength="255">
+                                    <button type="submit" class="btn btn-primary">Cadastrar</button>
+                                </form>
+                                <div id="terStatus" class="hgp-status"></div>
+                            </div>
+                            <div id="listaTerceiros" class="hgp-list"><div class="hgp-empty">Carregando...</div></div>
+                        </div>
+                        <div class="hgp-card hgp-chat">
+                            <div class="hgp-pad" style="border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; gap:12px; align-items:center;">
+                                <div>
+                                    <h2 id="chatTitulo">Selecione um contato</h2>
+                                    <small id="chatSub" style="color:#64748b;"></small>
+                                </div>
+                                <div class="hgp-actions" id="chatAcoes" style="display:none;">
+                                    <button type="button" class="btn btn-secondary" id="btnAlternarAtivo">Desativar</button>
+                                    <button type="button" class="btn btn-secondary" id="btnExcluir" style="color:#b91c1c;">Excluir</button>
+                                </div>
+                            </div>
+                            <div id="chatMsgs" class="hgp-msgs"><div class="hgp-empty">As mensagens aparecem aqui.</div></div>
+                            <form id="formEnviar" class="hgp-compose">
+                                <textarea id="chatTexto" placeholder="Escreva a mensagem" rows="2"></textarea>
+                                <button type="submit" class="btn btn-primary" id="btnEnviar" disabled>Enviar</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="pane-comunicado" class="hgp-pane">
+                    <div class="hgp-card" style="max-width:720px;">
+                        <div class="hgp-pad">
+                            <h2>Imagem depois do primeiro "oi"</h2>
+                            <p style="color:#64748b; font-size:13px;">Quando alguém inicia o atendimento no HGP, esta imagem é enviada antes das opções do menu. Use para aviso de manutenção da ATI. Desative quando o aviso acabar.</p>
+                            <form id="formBoasVindas" class="hgp-form" style="margin-top:14px;">
+                                <label style="display:flex; gap:8px; align-items:center; font-weight:700;">
+                                    <input type="checkbox" id="bvAtiva"> Enviar esta imagem
+                                </label>
+                                <input type="file" id="bvImagem" accept="image/jpeg,image/png,image/webp,image/gif">
+                                <textarea id="bvLegenda" rows="3" maxlength="500" placeholder="Texto opcional, enviado logo após a imagem"></textarea>
+                                <div class="hgp-actions">
+                                    <button type="submit" class="btn btn-primary">Salvar comunicado</button>
+                                    <button type="button" class="btn btn-secondary" id="bvRemover">Remover imagem</button>
+                                </div>
+                            </form>
+                            <div id="bvStatus" class="hgp-status"></div>
+                            <img id="bvPreview" class="hgp-preview" alt="Imagem atual" style="display:none;">
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script>
+        const listaEl = document.getElementById('listaTerceiros');
+        const terStatus = document.getElementById('terStatus');
+        const chatMsgs = document.getElementById('chatMsgs');
+        const chatTitulo = document.getElementById('chatTitulo');
+        const chatSub = document.getElementById('chatSub');
+        const chatAcoes = document.getElementById('chatAcoes');
+        const btnEnviar = document.getElementById('btnEnviar');
+        let contatos = [];
+        let selecionado = null;
+        let ultimoId = 0;
+
+        function esc(valor) {
+            return String(valor ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+        }
+        function hora(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (Number.isNaN(d.getTime())) return '';
+            return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        }
+        function status(el, texto, ok) {
+            el.textContent = texto || '';
+            el.className = 'hgp-status ' + (ok ? 'ok' : 'err');
+        }
+
+        document.querySelectorAll('.hgp-tab').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.hgp-tab').forEach((b) => b.classList.remove('active'));
+                document.querySelectorAll('.hgp-pane').forEach((p) => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('pane-' + btn.dataset.pane).classList.add('active');
+            });
+        });
+
+        function renderLista() {
+            if (!contatos.length) {
+                listaEl.innerHTML = '<div class="hgp-empty">Nenhum número cadastrado.</div>';
+                return;
+            }
+            listaEl.innerHTML = contatos.map((c) => {
+                const naoLidas = Number(c.nao_lidas || 0);
+                return `<button type="button" class="hgp-contato ${selecionado && selecionado.id === c.id ? 'active' : ''}" data-id="${c.id}">
+                    <strong>${esc(c.nome)}${naoLidas ? `<span class="hgp-badge">${naoLidas}</span>` : ''}</strong>
+                    <small>${esc(c.telefone)}${c.ativo ? '' : ' · <span class="hgp-off">inativo</span>'}</small>
+                </button>`;
+            }).join('');
+            listaEl.querySelectorAll('.hgp-contato').forEach((btn) => {
+                btn.addEventListener('click', () => abrirConversa(Number(btn.dataset.id)));
+            });
+        }
+
+        async function carregarLista() {
+            const res = await fetch('/api/hgp/terceirizados');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Falha ao listar');
+            contatos = data.terceirizados || [];
+            if (selecionado) selecionado = contatos.find((c) => c.id === selecionado.id) || null;
+            renderLista();
+            atualizarCabecalho();
+        }
+
+        function atualizarCabecalho() {
+            if (!selecionado) {
+                chatTitulo.textContent = 'Selecione um contato';
+                chatSub.textContent = '';
+                chatAcoes.style.display = 'none';
+                btnEnviar.disabled = true;
+                return;
+            }
+            chatTitulo.textContent = selecionado.nome;
+            chatSub.textContent = selecionado.telefone + (selecionado.observacao ? ' · ' + selecionado.observacao : '');
+            chatAcoes.style.display = 'flex';
+            document.getElementById('btnAlternarAtivo').textContent = selecionado.ativo ? 'Desativar' : 'Reativar';
+            btnEnviar.disabled = !selecionado.ativo;
+        }
+
+        function bolha(m) {
+            const midia = m.media_url
+                ? (String(m.media_mime_type || '').startsWith('image/')
+                    ? `<img src="${esc(m.media_url)}" alt="">`
+                    : `<a href="${esc(m.media_url)}" target="_blank" rel="noopener">Abrir arquivo</a><br>`)
+                : '';
+            return `<div class="hgp-bubble ${m.direcao === 'saida' ? 'saida' : 'entrada'}">${midia}${esc(m.mensagem || '')}<time>${hora(m.criado_em)}</time></div>`;
+        }
+
+        async function abrirConversa(id) {
+            selecionado = contatos.find((c) => c.id === id) || null;
+            ultimoId = 0;
+            renderLista();
+            atualizarCabecalho();
+            chatMsgs.innerHTML = '<div class="hgp-empty">Carregando...</div>';
+            await buscarMensagens(false);
+            carregarLista().catch(() => {});
+        }
+
+        async function buscarMensagens(incremental) {
+            if (!selecionado) return;
+            const idAtual = selecionado.id;
+            const res = await fetch(`/api/hgp/terceirizados/${idAtual}/mensagens?depois=${incremental ? ultimoId : 0}`);
+            const data = await res.json();
+            if (!data.success || !selecionado || selecionado.id !== idAtual) return;
+            const msgs = data.mensagens || [];
+            if (!incremental) {
+                chatMsgs.innerHTML = msgs.length ? '' : '<div class="hgp-empty">Nenhuma mensagem ainda.</div>';
+            } else if (msgs.length && chatMsgs.querySelector('.hgp-empty')) {
+                chatMsgs.innerHTML = '';
+            }
+            msgs.forEach((m) => {
+                chatMsgs.insertAdjacentHTML('beforeend', bolha(m));
+                ultimoId = Math.max(ultimoId, Number(m.id));
+            });
+            if (msgs.length) chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        }
+
+        document.getElementById('formTerceiro').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            terStatus.textContent = '';
+            try {
+                const res = await fetch('/api/hgp/terceirizados', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nome: document.getElementById('terNome').value,
+                        telefone: document.getElementById('terTelefone').value,
+                        observacao: document.getElementById('terObs').value
+                    })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                event.target.reset();
+                status(terStatus, data.message, true);
+                await carregarLista();
+            } catch (error) {
+                status(terStatus, error.message, false);
+            }
+        });
+
+        document.getElementById('formEnviar').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!selecionado) return;
+            const campo = document.getElementById('chatTexto');
+            const texto = campo.value.trim();
+            if (!texto) return;
+            btnEnviar.disabled = true;
+            try {
+                const res = await fetch(`/api/hgp/terceirizados/${selecionado.id}/enviar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mensagem: texto })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                campo.value = '';
+                await buscarMensagens(true);
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                btnEnviar.disabled = !selecionado || !selecionado.ativo;
+            }
+        });
+
+        document.getElementById('btnAlternarAtivo').addEventListener('click', async () => {
+            if (!selecionado) return;
+            const res = await fetch(`/api/hgp/terceirizados/${selecionado.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ativo: !selecionado.ativo })
+            });
+            const data = await res.json();
+            if (!data.success) return alert(data.message);
+            await carregarLista();
+        });
+
+        document.getElementById('btnExcluir').addEventListener('click', async () => {
+            if (!selecionado || !confirm('Remover este número? O bot do HGP volta a atendê-lo.')) return;
+            const res = await fetch(`/api/hgp/terceirizados/${selecionado.id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!data.success) return alert(data.message);
+            selecionado = null;
+            ultimoId = 0;
+            chatMsgs.innerHTML = '<div class="hgp-empty">As mensagens aparecem aqui.</div>';
+            await carregarLista();
+        });
+
+        async function carregarBoasVindas() {
+            const res = await fetch('/api/hgp/boas-vindas');
+            const data = await res.json();
+            if (!data.success) return;
+            document.getElementById('bvAtiva').checked = Boolean(data.solicitada);
+            document.getElementById('bvLegenda').value = data.legenda || '';
+            const preview = document.getElementById('bvPreview');
+            if (data.url) {
+                preview.src = data.url + '?t=' + Date.now();
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        document.getElementById('formBoasVindas').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const fd = new FormData();
+            fd.append('ativa', document.getElementById('bvAtiva').checked ? 'true' : 'false');
+            fd.append('legenda', document.getElementById('bvLegenda').value);
+            const arquivo = document.getElementById('bvImagem').files[0];
+            if (arquivo) fd.append('imagem', arquivo);
+            const res = await fetch('/api/hgp/boas-vindas', { method: 'POST', body: fd });
+            const data = await res.json();
+            status(document.getElementById('bvStatus'), data.message || 'Erro ao salvar', data.success);
+            if (data.success) {
+                document.getElementById('bvImagem').value = '';
+                await carregarBoasVindas();
+            }
+        });
+
+        document.getElementById('bvRemover').addEventListener('click', async () => {
+            const fd = new FormData();
+            fd.append('ativa', 'false');
+            fd.append('remover', 'true');
+            fd.append('legenda', document.getElementById('bvLegenda').value);
+            const res = await fetch('/api/hgp/boas-vindas', { method: 'POST', body: fd });
+            const data = await res.json();
+            status(document.getElementById('bvStatus'), data.message || 'Erro', data.success);
+            await carregarBoasVindas();
+        });
+
+        carregarLista().catch((error) => status(terStatus, error.message, false));
+        carregarBoasVindas().catch(() => {});
+        setInterval(() => {
+            carregarLista().catch(() => {});
+            if (selecionado) buscarMensagens(true).catch(() => {});
+        }, 5000);
+    </script>
+</body>
+</html>

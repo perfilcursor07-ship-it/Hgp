@@ -17,10 +17,19 @@ const db = require('./config/database');
 const { ensureSchema } = require('./config/ensureSchema');
 const { attachChatbot } = require('./chatbot-handler');
 const { entregarMensagem } = require('./modules/whatsapp-entrega');
+const {
+    STATUS_TRIAGEM,
+    STATUS_DEVOLVIDO,
+    unidadeTemTriagem,
+    invalidarCacheTriagem,
+    registrarHistorico,
+    tecnicosDaFila
+} = require('./modules/fila-triagem');
 const { BaileysClient } = require('./modules/baileys-client');
 const instanceManager = require('./modules/instance-manager');
 const mediaManager = require('./modules/media-manager');
 const { normalizarFluxoSesau } = require('./modules/flow-normalizer');
+const hgpExtras = require('./modules/hgp-extras');
 
 const uploadChatMedia = multer({
     storage: multer.diskStorage({
@@ -90,6 +99,27 @@ async function refreshUserScope(req) {
     }
 }
 
+// ── Gate da fila centralizada ────────────────────────────────────────
+// Técnico preso a uma ou mais filas (admin_locais) só vê o que já foi
+// distribuído PARA a fila dele: fila_local_id, não o local de origem.
+// Chamado em 'triagem' tem fila_local_id NULL e fica restrito à equipe
+// central (quem não tem fila vinculada) e ao administrador.
+//
+// Chamados antigos (fila_local_id NULL, status diferente de 'triagem')
+// continuam visíveis como hoje — é o caso de todo o histórico do HGP.
+function buildFilaWhere(localIds, alias = '') {
+    if (!Array.isArray(localIds) || localIds.length === 0) {
+        return { sql: '', params: [] };
+    }
+    const filaCol = alias ? `${alias}.fila_local_id` : 'fila_local_id';
+    const statusCol = alias ? `${alias}.status` : 'status';
+    const ph = localIds.map(() => '?').join(',');
+    return {
+        sql: ` AND (${filaCol} IN (${ph}) OR (${filaCol} IS NULL AND ${statusCol} <> 'triagem'))`,
+        params: [...localIds]
+    };
+}
+
 // Filtro de chamados por unidade/local do usuário logado
 // options.unidadeId: filtro extra do seletor (já validado contra o escopo)
 function buildChamadosListWhere(req, options = {}) {
@@ -118,12 +148,9 @@ function buildChamadosListWhere(req, options = {}) {
         params.push(...ids);
     }
 
-    const localIds = req?.session?.localIds;
-    if (Array.isArray(localIds) && localIds.length > 0) {
-        const localPh = localIds.map(() => '?').join(',');
-        sql += ` AND (local_id IS NULL OR local_id IN (${localPh}))`;
-        params.push(...localIds);
-    }
+    const fila = buildFilaWhere(req?.session?.localIds);
+    sql += fila.sql;
+    params.push(...fila.params);
 
     return { sql, params };
 }
@@ -926,23 +953,13 @@ function buildUnidadeWhere(req, alias = '', columnName = 'unidade_id') {
     }
     const placeholders = ids.map(() => '?').join(',');
 
-    // Filtro adicional por local (sub-unidade)
-    const localIds = req?.session?.localIds;
-    const localCol = alias ? `${alias}.local_id` : 'local_id';
-    let localSql = '';
-    const localParams = [];
-
-    if (Array.isArray(localIds) && localIds.length > 0) {
-        // Usuário tem locais vinculados: ver chamados daqueles locais + chamados sem local definido (legado)
-        const localPh = localIds.map(() => '?').join(',');
-        localSql = ` AND (${localCol} IS NULL OR ${localCol} IN (${localPh}))`;
-        localParams.push(...localIds);
-    }
-    // Se localIds é null: sem filtro de local, vê tudo da unidade
+    // Filtro adicional por fila de atendimento (ver buildFilaWhere).
+    // Se localIds é null: sem filtro de fila, vê tudo da unidade.
+    const fila = buildFilaWhere(req?.session?.localIds, alias);
 
     return {
-        sql: ` AND ${col} IN (${placeholders})${localSql}`,
-        params: [...ids, ...localParams]
+        sql: ` AND ${col} IN (${placeholders})${fila.sql}`,
+        params: [...ids, ...fila.params]
     };
 }
 
@@ -1038,7 +1055,7 @@ const listChamadosOverview = async (req = null) => {
         SELECT *
         FROM chamados
         ${sql}
-          AND status IN ('pendente', 'aberto', 'em_atendimento')
+          AND status IN ('triagem', 'pendente', 'aberto', 'em_atendimento')
         ORDER BY criado_em DESC
     `, params);
 
@@ -1079,6 +1096,8 @@ const listChamadosOverview = async (req = null) => {
     const [counts] = await db.query(`
         SELECT
             COUNT(*) AS total,
+            COALESCE(SUM(status = 'triagem'), 0) AS triagem,
+            COALESCE(SUM(status = 'devolvido'), 0) AS devolvido,
             COALESCE(SUM(status = 'aberto'), 0) AS aberto,
             COALESCE(SUM(status = 'pendente'), 0) AS pendente,
             COALESCE(SUM(status = 'em_atendimento'), 0) AS em_atendimento,
@@ -1089,12 +1108,15 @@ const listChamadosOverview = async (req = null) => {
 
     const contagem = {
         total: Number(counts[0]?.total || 0),
+        triagem: Number(counts[0]?.triagem || 0),
+        devolvido: Number(counts[0]?.devolvido || 0),
         aberto: Number(counts[0]?.aberto || 0),
         pendente: Number(counts[0]?.pendente || 0),
         em_atendimento: Number(counts[0]?.em_atendimento || 0),
         finalizado: Number(counts[0]?.finalizado || 0)
     };
 
+    await hgpExtras.marcarEhHgp(chamados);
     return { chamados, contagem };
 };
 
@@ -1136,6 +1158,16 @@ const isAdminOnly = (req, res, next) => {
 
     res.redirect('/chamados');
 };
+
+hgpExtras.registrarRotas(app, {
+    isAuthenticated,
+    obterClienteHgp: () => ({
+        client: whatsappClient,
+        connected: Boolean(whatsappClient) && whatsappState === 'connected'
+    }),
+    resolverDestino: (...candidatos) => resolveWhatsAppDestination(...candidatos),
+    entregarMensagem
+});
 
 // Rotas
 app.get('/', (req, res) => {
@@ -1690,11 +1722,23 @@ app.post('/api/unidades', isAuthenticated, isAdminOnly, async (req, res) => {
 
 app.put('/api/unidades/:id', isAuthenticated, isAdminOnly, async (req, res) => {
     try {
-        const { nome, codigo, descricao, cor, ativo } = req.body;
-        await db.query(
-            `UPDATE unidades SET nome = ?, codigo = ?, descricao = ?, cor = ?, ativo = ? WHERE id = ?`,
-            [nome, codigo, descricao || null, cor || '#25d366', ativo ? 1 : 0, req.params.id]
-        );
+        const { nome, codigo, descricao, cor, ativo, triagem_centralizada } = req.body;
+
+        // triagem_centralizada só muda quando vem explícito no payload, para
+        // não desligar a fila central por omissão em telas antigas.
+        if (triagem_centralizada === undefined) {
+            await db.query(
+                `UPDATE unidades SET nome = ?, codigo = ?, descricao = ?, cor = ?, ativo = ? WHERE id = ?`,
+                [nome, codigo, descricao || null, cor || '#25d366', ativo ? 1 : 0, req.params.id]
+            );
+        } else {
+            await db.query(
+                `UPDATE unidades SET nome = ?, codigo = ?, descricao = ?, cor = ?, ativo = ?, triagem_centralizada = ? WHERE id = ?`,
+                [nome, codigo, descricao || null, cor || '#25d366', ativo ? 1 : 0, triagem_centralizada ? 1 : 0, req.params.id]
+            );
+        }
+
+        invalidarCacheTriagem(req.params.id);
         res.json({ success: true });
     } catch (e) {
         res.json({ success: false, message: e.message });
@@ -2250,11 +2294,25 @@ app.get('/chamados', isAuthenticated, async (req, res) => {
 
         const { chamados, contagem } = await listChamadosOverview(req);
 
+        // A tela só mostra a triagem se o usuário tiver alguma unidade com
+        // fila centralizada. Para o HGP os controles nem são renderizados.
+        const [unidsTriagem] = await db.query(
+            'SELECT COUNT(*) AS total FROM unidades WHERE triagem_centralizada = TRUE AND ativo = TRUE'
+                + (Array.isArray(req.session.unidadeIds)
+                    ? (req.session.unidadeIds.length
+                        ? ` AND id IN (${req.session.unidadeIds.map(() => '?').join(',')})`
+                        : ' AND 1=0')
+                    : ''),
+            Array.isArray(req.session.unidadeIds) ? req.session.unidadeIds : []
+        );
+
         res.render('chamados', {
             username: req.session.username,
             nivelAcesso: req.session.nivelAcesso || 'administrador',
             chamados,
-            contagem
+            contagem,
+            temTriagem: Number(unidsTriagem[0]?.total || 0) > 0,
+            podeTriar: podeTriar(req)
         });
     } catch (error) {
         console.error('Erro ao carregar chamados:', error);
@@ -2262,7 +2320,9 @@ app.get('/chamados', isAuthenticated, async (req, res) => {
             username: req.session.username,
             nivelAcesso: req.session.nivelAcesso || 'administrador',
             chamados: [],
-            contagem: { total: 0, aberto: 0, pendente: 0, em_atendimento: 0, finalizado: 0 }
+            contagem: { total: 0, triagem: 0, devolvido: 0, aberto: 0, pendente: 0, em_atendimento: 0, finalizado: 0 },
+            temTriagem: false,
+            podeTriar: false
         });
     }
 });
@@ -3981,6 +4041,289 @@ app.delete('/api/usuarios/:id', isAuthenticated, isAdmin, async (req, res) => {
 });
 
 // API - Encaminhar chamado para técnico no mesmo turno (DEVE VIR ANTES DE :id/atender)
+// ══════════════════════════════════════════════════════════════════════
+// TRIAGEM — fila centralizada (só nas unidades com triagem_centralizada)
+// ══════════════════════════════════════════════════════════════════════
+
+// Quem pode triar: não-visualizador e não preso a uma fila específica.
+// localIds null = equipe central ou administrador (ver refreshUserScope).
+function podeTriar(req) {
+    if (req.session?.nivelAcesso === 'visualizador') return false;
+    return !Array.isArray(req.session?.localIds);
+}
+
+// Filas (locais) disponíveis para distribuição, com os técnicos de cada uma
+app.get('/api/filas', isAuthenticated, async (req, res) => {
+    try {
+        const ids = req.session?.unidadeIds;
+        let where = 'WHERE ul.ativo = TRUE';
+        const params = [];
+        if (Array.isArray(ids)) {
+            if (ids.length === 0) return res.json({ success: true, filas: [] });
+            where += ` AND ul.unidade_id IN (${ids.map(() => '?').join(',')})`;
+            params.push(...ids);
+        }
+
+        const [filas] = await db.query(
+            `SELECT ul.id, ul.nome, ul.codigo, ul.unidade_id, u.nome AS unidade_nome,
+                    (SELECT COUNT(*) FROM chamados c
+                      WHERE c.fila_local_id = ul.id
+                        AND c.status IN ('pendente','aberto','em_atendimento')) AS em_aberto
+             FROM unidade_locais ul
+             JOIN unidades u ON u.id = ul.unidade_id
+             ${where}
+             ORDER BY u.nome, ul.nome`,
+            params
+        );
+
+        for (const fila of filas) {
+            fila.tecnicos = await tecnicosDaFila(fila.id);
+        }
+
+        res.json({ success: true, filas });
+    } catch (error) {
+        console.error('Erro ao listar filas:', error);
+        res.status(500).json({ success: false, message: 'Erro ao listar filas' });
+    }
+});
+
+// Chamados aguardando validação na fila central
+app.get('/api/chamados/triagem', isAuthenticated, async (req, res) => {
+    try {
+        if (!podeTriar(req)) {
+            return res.status(403).json({ success: false, message: 'Apenas a equipe central pode acessar a fila de triagem.' });
+        }
+
+        const unidWhere = buildUnidadeWhere(req, 'c');
+        const [chamados] = await db.query(
+            `SELECT c.id, c.protocolo, c.categoria, c.solicitante_nome, c.setor, c.descricao,
+                    c.telefone_contato, c.email, c.cpf_solicitante, c.criado_em,
+                    c.unidade_id, c.local_id, u.nome AS unidade_nome, ul.nome AS local_origem,
+                    TIMESTAMPDIFF(MINUTE, c.criado_em, NOW()) AS minutos_na_fila
+             FROM chamados c
+             LEFT JOIN unidades u ON u.id = c.unidade_id
+             LEFT JOIN unidade_locais ul ON ul.id = c.local_id
+             WHERE c.status = ?${unidWhere.sql}
+             ORDER BY c.criado_em ASC`,
+            [STATUS_TRIAGEM, ...unidWhere.params]
+        );
+
+        res.json({ success: true, total: chamados.length, chamados });
+    } catch (error) {
+        console.error('Erro ao listar fila de triagem:', error);
+        res.status(500).json({ success: false, message: 'Erro ao listar fila de triagem' });
+    }
+});
+
+// Validar e distribuir: define a fila de destino e libera o chamado
+app.post('/api/chamados/:id/validar', isAuthenticated, async (req, res) => {
+    try {
+        if (!podeTriar(req)) {
+            return res.status(403).json({ success: false, message: 'Apenas a equipe central pode validar chamados.' });
+        }
+
+        const chamadoId = Number(req.params.id);
+        const filaLocalId = Number(req.body?.filaLocalId);
+        const observacao = String(req.body?.observacao || '').trim() || null;
+
+        if (!Number.isInteger(filaLocalId) || filaLocalId <= 0) {
+            return res.status(400).json({ success: false, message: 'Selecione a fila de destino.' });
+        }
+
+        const [rows] = await db.query('SELECT * FROM chamados WHERE id = ?', [chamadoId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Chamado não encontrado' });
+        }
+        const chamado = rows[0];
+
+        if (chamado.status !== STATUS_TRIAGEM) {
+            return res.status(409).json({
+                success: false,
+                message: `Este chamado não está em triagem (status atual: ${chamado.status}).`
+            });
+        }
+
+        // A fila precisa pertencer à mesma unidade do chamado
+        const [filas] = await db.query(
+            'SELECT id, nome FROM unidade_locais WHERE id = ? AND unidade_id = ? AND ativo = TRUE LIMIT 1',
+            [filaLocalId, chamado.unidade_id]
+        );
+        if (filas.length === 0) {
+            return res.status(400).json({ success: false, message: 'Fila inválida para a unidade deste chamado.' });
+        }
+        const fila = filas[0];
+
+        const validadoPorNome = req.session.nomeCompleto || req.session.username || 'Equipe central';
+
+        const [upd] = await db.query(
+            `UPDATE chamados
+                SET status = 'pendente',
+                    fila_local_id = ?,
+                    validado_em = NOW(),
+                    validado_por = ?,
+                    validado_por_nome = ?,
+                    motivo_devolucao = NULL
+              WHERE id = ? AND status = ?`,
+            [filaLocalId, req.session.userId, validadoPorNome, chamadoId, STATUS_TRIAGEM]
+        );
+
+        if (upd.affectedRows === 0) {
+            return res.status(409).json({ success: false, message: 'O chamado já foi validado por outro atendente.' });
+        }
+
+        await registrarHistorico({
+            chamadoId,
+            acao: 'validado',
+            de: STATUS_TRIAGEM,
+            para: `fila: ${fila.nome}`,
+            observacao,
+            adminId: req.session.userId,
+            adminNome: validadoPorNome
+        });
+
+        // Avisos em background: não travam a resposta da triagem
+        setImmediate(async () => {
+            try {
+                const wpp = await obterClienteWhatsAppParaChamado(chamado);
+                if (!wpp.isConnected || !wpp.client) return;
+
+                const tecnicos = await tecnicosDaFila(filaLocalId);
+                const mensagemFila = `🔔 *CHAMADO DISTRIBUÍDO PARA SUA FILA*\n\n` +
+                    `📌 *Protocolo:* ${chamado.protocolo}\n` +
+                    `🗂️ *Fila:* ${fila.nome}\n` +
+                    `👤 *Solicitante:* ${chamado.solicitante_nome}\n` +
+                    `🏢 *Setor:* ${chamado.setor}\n` +
+                    `📂 *Categoria:* ${chamado.categoria}\n` +
+                    `📝 *Descrição:* ${chamado.descricao}\n` +
+                    `📱 *Contato:* ${chamado.telefone_contato}\n` +
+                    (observacao ? `\n🗒️ *Orientação da triagem:* ${observacao}\n` : '') +
+                    `\nValidado por ${validadoPorNome}. Acesse o sistema para atender.`;
+
+                for (const tec of tecnicos) {
+                    if (!tec.telefone) continue;
+                    try {
+                        await entregarMensagem(wpp.client, tec.telefone, mensagemFila);
+                    } catch (e) {
+                        console.error(`Falha ao notificar técnico ${tec.username}:`, e.message);
+                    }
+                }
+
+                if (chamado.chat_origem) {
+                    await entregarMensagem(
+                        wpp.client,
+                        chamado.chat_origem,
+                        `✅ *Chamado validado — ${chamado.protocolo}*\n\n` +
+                        `Seu chamado foi validado pela nossa central e encaminhado para a equipe responsável.\n\n` +
+                        `_Você será avisado sobre o andamento do atendimento._`
+                    );
+                }
+            } catch (error) {
+                console.error('Erro ao notificar validação do chamado:', error.message);
+            }
+        });
+
+        res.json({ success: true, message: `Chamado validado e encaminhado para a fila ${fila.nome}.` });
+    } catch (error) {
+        console.error('Erro ao validar chamado:', error);
+        res.status(500).json({ success: false, message: 'Erro ao validar chamado' });
+    }
+});
+
+// Devolver ao solicitante: falta documentação, autorização ou dados
+app.post('/api/chamados/:id/devolver', isAuthenticated, async (req, res) => {
+    try {
+        if (!podeTriar(req)) {
+            return res.status(403).json({ success: false, message: 'Apenas a equipe central pode devolver chamados.' });
+        }
+
+        const chamadoId = Number(req.params.id);
+        const motivo = String(req.body?.motivo || '').trim();
+
+        if (motivo.length < 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'Informe o motivo da devolução (mínimo 10 caracteres) — ele é enviado ao solicitante.'
+            });
+        }
+
+        const [rows] = await db.query('SELECT * FROM chamados WHERE id = ?', [chamadoId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Chamado não encontrado' });
+        }
+        const chamado = rows[0];
+
+        if (chamado.status !== STATUS_TRIAGEM) {
+            return res.status(409).json({
+                success: false,
+                message: `Só é possível devolver chamados em triagem (status atual: ${chamado.status}).`
+            });
+        }
+
+        const devolvidoPorNome = req.session.nomeCompleto || req.session.username || 'Equipe central';
+
+        const [upd] = await db.query(
+            `UPDATE chamados
+                SET status = ?, motivo_devolucao = ?, validado_por = ?, validado_por_nome = ?, validado_em = NOW()
+              WHERE id = ? AND status = ?`,
+            [STATUS_DEVOLVIDO, motivo, req.session.userId, devolvidoPorNome, chamadoId, STATUS_TRIAGEM]
+        );
+
+        if (upd.affectedRows === 0) {
+            return res.status(409).json({ success: false, message: 'O chamado já foi tratado por outro atendente.' });
+        }
+
+        await registrarHistorico({
+            chamadoId,
+            acao: 'devolvido',
+            de: STATUS_TRIAGEM,
+            para: STATUS_DEVOLVIDO,
+            observacao: motivo,
+            adminId: req.session.userId,
+            adminNome: devolvidoPorNome
+        });
+
+        setImmediate(async () => {
+            try {
+                const wpp = await obterClienteWhatsAppParaChamado(chamado);
+                if (wpp.isConnected && wpp.client && chamado.chat_origem) {
+                    await entregarMensagem(
+                        wpp.client,
+                        chamado.chat_origem,
+                        `⚠️ *Chamado devolvido — ${chamado.protocolo}*\n\n` +
+                        `Sua solicitação não pôde ser aceita pela central de atendimento.\n\n` +
+                        `*Motivo:* ${motivo}\n\n` +
+                        `_Regularize o que foi solicitado e abra um novo chamado._`
+                    );
+                }
+            } catch (error) {
+                console.error('Erro ao notificar devolução:', error.message);
+            }
+        });
+
+        res.json({ success: true, message: 'Chamado devolvido ao solicitante.' });
+    } catch (error) {
+        console.error('Erro ao devolver chamado:', error);
+        res.status(500).json({ success: false, message: 'Erro ao devolver chamado' });
+    }
+});
+
+// Histórico completo de movimentações do chamado (auditoria)
+app.get('/api/chamados/:id/historico', isAuthenticated, async (req, res) => {
+    try {
+        const [historico] = await db.query(
+            `SELECT id, acao, de_valor, para_valor, observacao, admin_nome, criado_em
+             FROM chamado_historico
+             WHERE chamado_id = ?
+             ORDER BY criado_em ASC, id ASC`,
+            [Number(req.params.id)]
+        );
+        res.json({ success: true, historico });
+    } catch (error) {
+        console.error('Erro ao buscar histórico do chamado:', error);
+        res.status(500).json({ success: false, message: 'Erro ao buscar histórico' });
+    }
+});
+
 app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
     let chamadoId = null;
     try {
@@ -3989,13 +4332,14 @@ app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
         }
 
         chamadoId = String(req.params.id);
+        const paraEquipe = req.body?.paraEquipe === true || req.body?.paraEquipe === 'true' || req.body?.paraEquipe === 1;
         const gestorId = Number(req.body?.gestorId);
-        if (!Number.isInteger(gestorId) || gestorId <= 0) {
+        if (!paraEquipe && (!Number.isInteger(gestorId) || gestorId <= 0)) {
             return res.status(400).json({ success: false, message: 'Selecione o técnico para encaminhar o chamado.' });
         }
 
         limparEncaminhamentosRecentes();
-        const chaveRecente = `${chamadoId}:${gestorId}`;
+        const chaveRecente = paraEquipe ? `${chamadoId}:equipe` : `${chamadoId}:${gestorId}`;
         if (encaminhamentosEmAndamento.has(chamadoId)) {
             return res.status(409).json({ success: false, message: 'Este chamado já está sendo encaminhado. Aguarde.' });
         }
@@ -4003,6 +4347,104 @@ app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
             return res.json({ success: true, message: 'Este encaminhamento já foi processado.' });
         }
         encaminhamentosEmAndamento.add(chamadoId);
+
+        // Buscar dados do chamado
+        const [chamado] = await db.query('SELECT * FROM chamados WHERE id = ?', [chamadoId]);
+
+        if (chamado.length === 0) {
+            return res.status(404).json({ success: false, message: 'Chamado não encontrado' });
+        }
+
+        // Fila centralizada: nada é distribuído antes da validação da triagem
+        if (chamado[0].status === STATUS_TRIAGEM) {
+            return res.status(409).json({
+                success: false,
+                message: 'Este chamado está em triagem. Valide e defina a fila de destino antes de atribuir um técnico.'
+            });
+        }
+
+        if (paraEquipe) {
+            if (!(await hgpExtras.chamadoEhHgp(chamado[0]))) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Encaminhar para a equipe inteira está disponível apenas nos chamados do HGP.'
+                });
+            }
+            if (chamado[0].status === 'finalizado') {
+                return res.status(409).json({ success: false, message: 'Chamado finalizado não pode ser encaminhado.' });
+            }
+
+            const equipe = await hgpExtras.listarEquipeTiHgp();
+            if (!equipe.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Nenhum integrante ativo da equipe de TI do HGP foi encontrado.'
+                });
+            }
+
+            await db.query(
+                `UPDATE chamados
+                 SET status = 'em_atendimento',
+                     atendente_id = NULL,
+                     atendente_nome = 'Equipe de TI',
+                     iniciado_em = COALESCE(iniciado_em, NOW())
+                 WHERE id = ?`,
+                [chamadoId]
+            );
+
+            encerrarFluxoBotDoChamado(chamado[0]);
+            await registrarHistorico({
+                chamadoId,
+                acao: 'atribuido',
+                de: chamado[0].atendente_nome || chamado[0].status,
+                para: `Equipe de TI (${equipe.length})`,
+                adminId: req.session.userId,
+                adminNome: req.session.nomeCompleto || req.session.username
+            });
+
+            encaminhamentosRecentes.set(chaveRecente, Date.now() + 30000);
+            const comTelefone = equipe.filter((pessoa) => String(pessoa.telefone || '').trim());
+            setImmediate(async () => {
+                try {
+                    const wpp = await obterClienteWhatsAppParaChamado(chamado[0]);
+                    if (wpp.isConnected && wpp.client) {
+                        const mensagemEquipe = `🔔 *CHAMADO PARA A EQUIPE DE TI*\n\n` +
+                            `📌 *Protocolo:* ${chamado[0].protocolo}\n` +
+                            `👤 *Solicitante:* ${chamado[0].solicitante_nome}\n` +
+                            `🏢 *Setor:* ${chamado[0].setor || '-'}\n` +
+                            `📂 *Categoria:* ${chamado[0].categoria || '-'}\n` +
+                            `📝 *Descrição:* ${chamado[0].descricao || '-'}\n` +
+                            `📱 *Contato:* ${chamado[0].telefone_contato || chamado[0].telefone_whatsapp || '-'}\n\n` +
+                            `Este chamado foi encaminhado para toda a equipe de TI do HGP.`;
+
+                        for (const pessoa of comTelefone) {
+                            try {
+                                await hgpExtras.enviarTextoWhatsApp(wpp.client, pessoa.telefone, mensagemEquipe);
+                            } catch (error) {
+                                console.error(`[HGP equipe] Falha ao avisar ${pessoa.nome_completo || pessoa.username}:`, error.message);
+                            }
+                            await new Promise((resolve) => setTimeout(resolve, 400));
+                        }
+
+                        if (chamado[0].chat_origem) {
+                            const mensagemSolicitante = `🔔 *ATUALIZAÇÃO DO CHAMADO*\n\n` +
+                                `📌 *Protocolo:* ${chamado[0].protocolo}\n` +
+                                `👥 *Atendente:* Equipe de TI\n` +
+                                `📊 *Status:* Em Atendimento\n\n` +
+                                `Seu chamado foi encaminhado para a equipe de TI.`;
+                            await entregarMensagem(wpp.client, chamado[0].chat_origem, mensagemSolicitante);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro ao avisar a equipe de TI do HGP:', error.message);
+                }
+            });
+
+            return res.json({
+                success: true,
+                message: `Chamado encaminhado para a equipe de TI do HGP. ${comTelefone.length} pessoas avisadas no WhatsApp.`
+            });
+        }
 
         // Buscar dados do técnico destino
         const [gestor] = await db.query(
@@ -4012,13 +4454,6 @@ app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
 
         if (gestor.length === 0) {
             return res.status(404).json({ success: false, message: 'Gestor não encontrado' });
-        }
-
-        // Buscar dados do chamado
-        const [chamado] = await db.query('SELECT * FROM chamados WHERE id = ?', [chamadoId]);
-
-        if (chamado.length === 0) {
-            return res.status(404).json({ success: false, message: 'Chamado não encontrado' });
         }
 
         const nomeGestor = gestor[0].nome_completo || gestor[0].username || 'Técnico';
@@ -4045,6 +4480,15 @@ app.post('/api/chamados/:id/encaminhar', isAuthenticated, async (req, res) => {
         }
 
         encerrarFluxoBotDoChamado(chamado[0]);
+
+        await registrarHistorico({
+            chamadoId,
+            acao: 'atribuido',
+            de: chamado[0].atendente_nome || chamado[0].status,
+            para: nomeGestor,
+            adminId: req.session.userId,
+            adminNome: req.session.nomeCompleto || req.session.username
+        });
 
         encaminhamentosRecentes.set(chaveRecente, Date.now() + 30000);
         setImmediate(async () => {
@@ -4204,6 +4648,16 @@ app.post('/api/chamados/:id/transferir', isAuthenticated, async (req, res) => {
             [novoAtendente[0].id, nomeNovo, `\n[Transferido de ${nomeAnterior} para ${nomeNovo} em ${new Date().toLocaleString('pt-BR')}]\nMotivo: ${observacaoLimpa}\n`, chamadoId]
         );
 
+        await registrarHistorico({
+            chamadoId,
+            acao: 'transferido',
+            de: nomeAnterior,
+            para: nomeNovo,
+            observacao: observacaoLimpa,
+            adminId: req.session.userId,
+            adminNome: nomeAnterior
+        });
+
         // Registrar no chat do chamado
         await db.query(
             `INSERT INTO chat_messages (chamado_id, remetente_tipo, remetente_nome, mensagem)
@@ -4266,10 +4720,18 @@ app.post('/api/chamados/:id/atender', isAuthenticated, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Chamado não encontrado' });
         }
 
+        // Fila centralizada: só se atende chamado já validado pela triagem
+        if (chamado[0].status === STATUS_TRIAGEM) {
+            return res.status(409).json({
+                success: false,
+                message: 'Este chamado aguarda validação da triagem e ainda não pode ser atendido.'
+            });
+        }
+
         if (chamado[0].status === 'em_atendimento' && chamado[0].atendente_id !== atendenteId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `Este chamado já está sendo atendido por ${chamado[0].atendente_nome}` 
+            return res.status(400).json({
+                success: false,
+                message: `Este chamado já está sendo atendido por ${chamado[0].atendente_nome}`
             });
         }
 
@@ -4283,6 +4745,15 @@ app.post('/api/chamados/:id/atender', isAuthenticated, async (req, res) => {
              WHERE id = ?`,
             [atendenteId, atendenteNome, chamadoId]
         );
+
+        await registrarHistorico({
+            chamadoId,
+            acao: 'status_alterado',
+            de: chamado[0].status,
+            para: 'em_atendimento',
+            adminId: atendenteId,
+            adminNome: atendenteNome
+        });
 
         // Responder ao front IMEDIATAMENTE; o WhatsApp vai em segundo plano.
         res.json({ success: true, message: 'Atendimento iniciado com sucesso' });
@@ -4342,6 +4813,16 @@ app.post('/api/chamados/:id/encerrar', isAuthenticated, async (req, res) => {
              WHERE id = ?`,
             [observacoes || null, chamadoId]
         );
+
+        await registrarHistorico({
+            chamadoId,
+            acao: 'encerrado',
+            de: chamado[0].status,
+            para: 'finalizado',
+            observacao: observacoes || null,
+            adminId: req.session.userId,
+            adminNome: req.session.nomeCompleto || req.session.username
+        });
 
         const mensagemEncerramento = `✅ Chamado encerrado.\n📌 Protocolo: ${chamado[0].protocolo}`;
 

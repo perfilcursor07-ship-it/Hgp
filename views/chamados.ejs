@@ -451,6 +451,39 @@
             width: 7px !important;
             height: 7px !important;
         }
+        .ca-aguardando {
+            font-size: 11px;
+            font-weight: 600;
+            color: #b91c1c;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+        .hist-lista { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }
+        .hist-item {
+            display: flex; gap: 10px; padding: 10px 12px;
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+        }
+        .hist-acao {
+            font-weight: 700; font-size: 11px; text-transform: uppercase;
+            letter-spacing: .3px; color: #0f766e; min-width: 100px;
+        }
+        .hist-corpo { flex: 1; font-size: 13px; color: #334155; }
+        .hist-meta { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+        .status-triagem {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .status-triagem .status-dot { background: #ef4444 !important; }
+        .status-devolvido {
+            background: #f8fafc;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
+        .status-devolvido .status-dot { background: #94a3b8 !important; }
         .status-pendente {
             background: #fef3c7 !important;
             color: #d97706 !important;
@@ -1778,6 +1811,10 @@
                 <!-- Barra superior compacta: stats em chips + unidade + meus chamados -->
                 <div class="chamados-topstrip">
                     <div class="topstrip-chips">
+                        <button class="stat-chip" data-filter="triagem" id="chipTriagem" style="display:none;" onclick="aplicarFiltro('triagem')">
+                            <span class="stat-chip-dot" style="background:#ef4444;"></span>
+                            Em triagem <strong id="statsTriagem"><%= contagem.triagem || 0 %></strong>
+                        </button>
                         <button class="stat-chip" data-filter="aberto" onclick="aplicarFiltro('aberto')">
                             <span class="stat-chip-dot" style="background:#22c55e;"></span>
                             Abertos <strong id="statsAberto"><%= contagem.aberto || 0 %></strong>
@@ -1815,6 +1852,7 @@
                         <div class="chamados-toolbar">
                             <div class="filter-tabs">
                                 <button class="filter-tab active" data-filter="todos" onclick="aplicarFiltro('todos')">Todos</button>
+                                <button class="filter-tab" data-filter="triagem" id="tabTriagem" style="display:none;" onclick="aplicarFiltro('triagem')">Triagem</button>
                                 <button class="filter-tab" data-filter="pendente" onclick="aplicarFiltro('pendente')">Pendentes</button>
                                 <button class="filter-tab" data-filter="aberto" onclick="aplicarFiltro('aberto')">Abertos</button>
                                 <button class="filter-tab" data-filter="em_atendimento" onclick="aplicarFiltro('em_atendimento')">Em Atend.</button>
@@ -2030,6 +2068,14 @@
                 <input type="hidden" id="encaminharChamadoId" name="chamadoId">
                 <input type="hidden" id="gestorId" name="gestorId">
                 <p style="margin-bottom:16px;">Protocolo: <strong id="encaminharProtocolo"></strong></p>
+
+                <div id="boxEncaminharEquipe" style="display:none; margin-bottom:14px;">
+                    <button type="button" id="btnEncaminharEquipe" onclick="encaminharParaEquipe()" class="btn btn-primary" style="width:100%; background:#0f766e;">
+                        Encaminhar para toda a equipe de TI
+                    </button>
+                    <p style="font-size:12px; color:#64748b; margin:8px 0 0;">Só no HGP. Avisa todos os técnicos da unidade ao mesmo tempo. O chamado fica com a equipe, sem um atendente único.</p>
+                    <p style="font-size:12px; color:#94a3b8; margin:10px 0 0; text-align:center;">ou escolha um técnico</p>
+                </div>
                 
                 <div class="form-group">
                     <label style="font-size:13px;color:#64748b;margin-bottom:8px;">Encaminhar para (técnicos no turno atual):</label>
@@ -2043,6 +2089,80 @@
                     <button type="submit" class="btn btn-primary">Encaminhar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal Validar e Distribuir (fila centralizada) -->
+    <div id="modalValidar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Validar e distribuir</h2>
+                <span class="modal-close" onclick="fecharModalValidar()">&times;</span>
+            </div>
+            <form id="formValidar" onsubmit="validarChamado(event)">
+                <input type="hidden" id="validarChamadoId">
+                <p>Protocolo: <strong id="validarProtocolo"></strong></p>
+
+                <div class="form-group">
+                    <label for="validarFila">Fila de destino <span style="color:#dc2626;">*</span></label>
+                    <select id="validarFila" required style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px;">
+                        <option value="">Carregando filas...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="validarObs">Orientação para a equipe (opcional)</label>
+                    <textarea id="validarObs" rows="3" placeholder="Ex: solicitação autorizada pela chefia, prioridade normal."
+                              style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px;"></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" onclick="fecharModalValidar()" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnValidarSubmit">Validar e distribuir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Devolver ao Solicitante -->
+    <div id="modalDevolver" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Devolver ao solicitante</h2>
+                <span class="modal-close" onclick="fecharModalDevolver()">&times;</span>
+            </div>
+            <form id="formDevolver" onsubmit="devolverChamado(event)">
+                <input type="hidden" id="devolverChamadoId">
+                <p>Protocolo: <strong id="devolverProtocolo"></strong></p>
+                <p style="font-size:13px; color:#64748b;">O motivo abaixo é enviado ao solicitante pelo WhatsApp.</p>
+
+                <div class="form-group">
+                    <label for="devolverMotivo">Motivo da devolução <span style="color:#dc2626;">*</span></label>
+                    <textarea id="devolverMotivo" rows="4" required minlength="10"
+                              placeholder="Ex: falta a autorização da chefia imediata para esta solicitação."
+                              style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px;"></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" onclick="fecharModalDevolver()" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnDevolverSubmit" style="background:#dc2626;">Devolver</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Histórico do Chamado -->
+    <div id="modalHistorico" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Histórico do chamado</h2>
+                <span class="modal-close" onclick="fecharModalHistorico()">&times;</span>
+            </div>
+            <p>Protocolo: <strong id="historicoProtocolo"></strong></p>
+            <div id="historicoLista" class="hist-lista"></div>
+            <div class="modal-actions">
+                <button type="button" onclick="fecharModalHistorico()" class="btn btn-secondary">Fechar</button>
+            </div>
         </div>
     </div>
 
@@ -2147,6 +2267,8 @@
         const isAdmin = <%= isAdmin ? 'true' : 'false' %>;
         const isAdminOnly = <%= nivelAcesso === 'administrador' ? 'true' : 'false' %>;
         const isVisualizador = '<%= nivelAcesso %>' === 'visualizador';
+        const temTriagem = <%= typeof temTriagem !== 'undefined' && temTriagem ? 'true' : 'false' %>;
+        const podeTriar  = <%= typeof podeTriar  !== 'undefined' && podeTriar  ? 'true' : 'false' %>;
         const initialChamados = <%- JSON.stringify(chamados || []) %>;
         let gestoresCache = [];
         let chamadosAutoRefresh = null;
@@ -2189,10 +2311,12 @@
 
         function montarBadgeStatus(status) {
             const map = {
+                triagem:        ['status-triagem',       'Em triagem'],
                 pendente:       ['status-pendente',      'Pendente'],
                 aberto:         ['status-aberto',        'Aberto'],
                 em_atendimento: ['status-em-atendimento','Em Atend.'],
                 finalizado:     ['status-finalizado',    'Finalizado'],
+                devolvido:      ['status-devolvido',     'Devolvido'],
             };
             const [cls, label] = map[status] || ['status-finalizado', status];
             return `<span class="status-chip ${cls}"><span class="status-dot"></span>${label}</span>`;
@@ -2336,6 +2460,27 @@
             let html = '<div class="chamado-actions">';
             let menuItems = '';
 
+            // Chamado em triagem: a unica acao possivel e validar ou devolver.
+            // Nada de atender/encaminhar antes da equipe central liberar.
+            if (chamado.status === 'triagem') {
+                if (podeTriar) {
+                    html += `<button onclick="abrirModalValidar(${chamado.id},'${p}')" class="ca-btn ca-atender ca-btn-primary" title="Validar e distribuir">${icAtender}<span>Validar</span></button>`;
+                    html += `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" data-id="${chamado.id}">${icInfo}</button>`;
+                    menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalDevolver(${chamado.id},'${p}')">${icEncerrar} Devolver ao solicitante</button>`;
+                } else {
+                    html += `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" data-id="${chamado.id}">${icInfo}</button>`;
+                    html += `<span class="ca-aguardando" title="Aguardando validacao da equipe central">aguardando triagem</span>`;
+                }
+                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirHistoricoChamado(${chamado.id},'${p}')">${icInfo} Historico</button>`;
+                if (menuItems) {
+                    html += `<div class="ca-menu-wrap">
+                        <button type="button" class="ca-btn ca-menu-trigger" title="Mais acoes" onclick="toggleCaMenu(event, ${chamado.id})">⋮</button>
+                        <div class="ca-menu" id="ca-menu-${chamado.id}">${menuItems}</div>
+                    </div>`;
+                }
+                return html + '</div>';
+            }
+
             if (!finalizado) {
                 if (!emAtendimento) {
                     html += `<button onclick="atenderChamado(${chamado.id},'${p}')" class="ca-btn ca-atender ca-btn-primary" title="Atender">${icAtender}<span>Atender</span></button>`;
@@ -2344,7 +2489,7 @@
                 html += `<button onclick="abrirModalEncerrar(${chamado.id},'${p}')" class="ca-btn ca-close" title="Encerrar">${icEncerrar}</button>`;
 
                 const lblEnc = emAtendimento ? 'Reencaminhar' : 'Encaminhar';
-                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalEncaminhar(${chamado.id},'${p}')">${icForward} ${lblEnc}</button>`;
+                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalEncaminhar(${chamado.id},'${p}',${chamado.eh_hgp ? 1 : 0})">${icForward} ${lblEnc}</button>`;
                 if (emAtendimento) {
                     menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalTransferir(${chamado.id},'${p}')">${icForward} Transferir</button>`;
                 }
@@ -2355,6 +2500,8 @@
             if (chamado.nome_whatsapp || chamado.telefone_whatsapp) {
                 menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();mostrarDadosWhatsApp('${p}','${escapeHtml(chamado.solicitante_nome)}','${escapeHtml(chamado.telefone_contato||'')}','${escapeHtml(chamado.nome_whatsapp||'')}','${escapeHtml(chamado.telefone_whatsapp||'')}')">${icChat} Dados WhatsApp</button>`;
             }
+
+            menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirHistoricoChamado(${chamado.id},'${p}')">${icInfo} Histórico</button>`;
 
             if (isAdminOnly) {
                 menuItems += `<button type="button" class="ca-menu-item danger" onclick="fecharMenusCa();excluirChamado(${chamado.id},'${p}')">${icExcluir} Excluir</button>`;
@@ -2371,7 +2518,7 @@
             return html;
         }
 
-        const STATUS_ATIVOS = ['pendente', 'aberto', 'em_atendimento'];
+        const STATUS_ATIVOS = ['triagem', 'pendente', 'aberto', 'em_atendimento', 'devolvido'];
 
         function chamadoMatchBusca(chamado) {
             if (!buscaAtiva) return true;
@@ -2491,7 +2638,7 @@
             const mostrarAtivos = filtroAtivo === 'todos' || STATUS_ATIVOS.includes(filtroAtivo);
             const mostrarFinalizados = filtroAtivo === 'todos' || filtroAtivo === 'finalizado';
 
-            const statusOrdem = { pendente: 0, aberto: 1, em_atendimento: 2 };
+            const statusOrdem = { triagem: 0, pendente: 1, aberto: 2, em_atendimento: 3, devolvido: 4 };
             let ativos = base.filter(c => STATUS_ATIVOS.includes(c.status));
             if (STATUS_ATIVOS.includes(filtroAtivo)) ativos = ativos.filter(c => c.status === filtroAtivo);
             ativos.sort((a, b) => {
@@ -2589,6 +2736,8 @@
         }
 
         function renderStats(contagem) {
+            const elTriagem = document.getElementById('statsTriagem');
+            if (elTriagem) elTriagem.textContent = contagem.triagem || 0;
             document.getElementById('statsAberto').textContent = contagem.aberto || 0;
             document.getElementById('statsPendente').textContent = contagem.pendente || 0;
             document.getElementById('statsAtendimento').textContent = contagem.em_atendimento || 0;
@@ -2675,6 +2824,13 @@
         }
 
         document.addEventListener('DOMContentLoaded', async function() {
+            // Controles de triagem aparecem so para quem tem unidade com fila central
+            if (temTriagem) {
+                const chip = document.getElementById('chipTriagem');
+                const tab = document.getElementById('tabTriagem');
+                if (chip) chip.style.display = '';
+                if (tab) tab.style.display = '';
+            }
             renderChamadosTable(chamadosState);
             carregarGestores();
             await carregarSeletorUnidades();
@@ -2721,10 +2877,12 @@
             document.getElementById('gestorId').value = id;
         }
 
-        async function abrirModalEncaminhar(id, protocolo) {
+        async function abrirModalEncaminhar(id, protocolo, ehHgp) {
             document.getElementById('encaminharChamadoId').value = id;
             document.getElementById('encaminharProtocolo').textContent = protocolo;
             document.getElementById('gestorId').value = '';
+            const boxEquipe = document.getElementById('boxEncaminharEquipe');
+            if (boxEquipe) boxEquipe.style.display = Number(ehHgp) === 1 ? 'block' : 'none';
             document.getElementById('modalEncaminhar').style.display = 'flex';
 
             const lista = document.getElementById('listaGestoresEncaminhar');
@@ -2751,6 +2909,46 @@
 
         function fecharModalEncaminhar() {
             document.getElementById('modalEncaminhar').style.display = 'none';
+        }
+
+        let encaminhandoEquipe = false;
+        async function encaminharParaEquipe() {
+            if (encaminhandoEquipe) return;
+            const chamadoId = document.getElementById('encaminharChamadoId').value;
+            if (!chamadoId) return;
+            if (!confirm('Encaminhar este chamado para toda a equipe de TI do HGP?')) return;
+
+            encaminhandoEquipe = true;
+            const btn = document.getElementById('btnEncaminharEquipe');
+            const label = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Encaminhando...';
+            }
+            try {
+                const response = await fetch(`/api/chamados/${chamadoId}/encaminhar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paraEquipe: true })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    fecharModalEncaminhar();
+                    mostrarToast('✓ ' + result.message, 'success');
+                    atualizarOverviewChamados().catch(error => console.error('Erro ao atualizar chamados:', error));
+                } else {
+                    mostrarToast('✗ ' + (result.message || 'Erro ao encaminhar'), 'error');
+                }
+            } catch (error) {
+                mostrarToast('✗ Erro ao encaminhar para a equipe', 'error');
+                console.error(error);
+            } finally {
+                encaminhandoEquipe = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = label;
+                }
+            }
         }
 
         let encaminhandoChamado = false;
@@ -2835,6 +3033,176 @@
 
         function fecharModalEncerrar() {
             document.getElementById('modalEncerrar').style.display = 'none';
+        }
+
+        // --- Triagem: validar / devolver / historico ----------------
+        let filasCache = null;
+
+        async function carregarFilas() {
+            if (filasCache) return filasCache;
+            const resp = await fetch('/api/filas');
+            const data = await resp.json();
+            filasCache = data.success ? (data.filas || []) : [];
+            return filasCache;
+        }
+
+        async function abrirModalValidar(id, protocolo) {
+            document.getElementById('validarChamadoId').value = id;
+            document.getElementById('validarProtocolo').textContent = protocolo;
+            document.getElementById('validarObs').value = '';
+            document.getElementById('modalValidar').style.display = 'flex';
+
+            const select = document.getElementById('validarFila');
+            select.innerHTML = '<option value="">Carregando filas...</option>';
+
+            const chamado = chamadosState.find(c => c.id === id);
+            const filas = (await carregarFilas())
+                .filter(f => !chamado || !chamado.unidade_id || Number(f.unidade_id) === Number(chamado.unidade_id));
+
+            if (filas.length === 0) {
+                select.innerHTML = '<option value="">Nenhuma fila cadastrada para esta unidade</option>';
+                return;
+            }
+
+            select.innerHTML = '<option value="">Selecione a fila de destino...</option>'
+                + filas.map(f => {
+                    const tecnicos = f.tecnicos || [];
+                    const responsavel = tecnicos.find(t => t.papel === 'responsavel');
+                    const info = responsavel
+                        ? ' - ' + escapeHtml(responsavel.nome_completo || responsavel.username)
+                        : (tecnicos.length ? '' : ' - sem tecnico vinculado');
+                    return `<option value="${f.id}">${escapeHtml(f.nome)}${info} (${f.em_aberto} em aberto)</option>`;
+                }).join('');
+        }
+
+        function fecharModalValidar() {
+            document.getElementById('modalValidar').style.display = 'none';
+        }
+
+        async function validarChamado(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btnValidarSubmit');
+            const id = document.getElementById('validarChamadoId').value;
+            const filaLocalId = document.getElementById('validarFila').value;
+            const observacao = document.getElementById('validarObs').value.trim();
+
+            if (!filaLocalId) return mostrarToast('Selecione a fila de destino.', 'error');
+
+            btn.disabled = true;
+            btn.textContent = 'Validando...';
+            try {
+                const resp = await fetch(`/api/chamados/${id}/validar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filaLocalId: Number(filaLocalId), observacao })
+                });
+                const data = await resp.json();
+                mostrarToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    fecharModalValidar();
+                    filasCache = null;
+                    atualizarOverviewChamados();
+                }
+            } catch (e) {
+                mostrarToast('Erro ao validar chamado.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Validar e distribuir';
+            }
+        }
+
+        function abrirModalDevolver(id, protocolo) {
+            document.getElementById('devolverChamadoId').value = id;
+            document.getElementById('devolverProtocolo').textContent = protocolo;
+            document.getElementById('devolverMotivo').value = '';
+            document.getElementById('modalDevolver').style.display = 'flex';
+        }
+
+        function fecharModalDevolver() {
+            document.getElementById('modalDevolver').style.display = 'none';
+        }
+
+        async function devolverChamado(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btnDevolverSubmit');
+            const id = document.getElementById('devolverChamadoId').value;
+            const motivo = document.getElementById('devolverMotivo').value.trim();
+
+            if (motivo.length < 10) {
+                return mostrarToast('Descreva o motivo com pelo menos 10 caracteres.', 'error');
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Devolvendo...';
+            try {
+                const resp = await fetch(`/api/chamados/${id}/devolver`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ motivo })
+                });
+                const data = await resp.json();
+                mostrarToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) {
+                    fecharModalDevolver();
+                    atualizarOverviewChamados();
+                }
+            } catch (e) {
+                mostrarToast('Erro ao devolver chamado.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Devolver';
+            }
+        }
+
+        const HIST_ACOES = {
+            criado: 'Criado',
+            validado: 'Validado',
+            devolvido: 'Devolvido',
+            fila_alterada: 'Fila alterada',
+            atribuido: 'Atribuido',
+            transferido: 'Transferido',
+            status_alterado: 'Status',
+            encerrado: 'Encerrado',
+            reaberto: 'Reaberto'
+        };
+
+        async function abrirHistoricoChamado(id, protocolo) {
+            document.getElementById('historicoProtocolo').textContent = protocolo;
+            const lista = document.getElementById('historicoLista');
+            lista.innerHTML = '<p style="color:#94a3b8;">Carregando...</p>';
+            document.getElementById('modalHistorico').style.display = 'flex';
+
+            try {
+                const resp = await fetch(`/api/chamados/${id}/historico`);
+                const data = await resp.json();
+                const itens = data.success ? (data.historico || []) : [];
+
+                if (itens.length === 0) {
+                    lista.innerHTML = '<p style="color:#94a3b8;">Nenhuma movimentacao registrada para este chamado.</p>';
+                    return;
+                }
+
+                lista.innerHTML = itens.map(h => {
+                    const quando = new Date(h.criado_em).toLocaleString('pt-BR');
+                    const de = h.de_valor ? `<strong>${escapeHtml(h.de_valor)}</strong> &rarr; ` : '';
+                    const para = h.para_valor ? `<strong>${escapeHtml(h.para_valor)}</strong>` : '';
+                    const obs = h.observacao ? `<div style="margin-top:4px;">${escapeHtml(h.observacao)}</div>` : '';
+                    return `<div class="hist-item">
+                        <div class="hist-acao">${escapeHtml(HIST_ACOES[h.acao] || h.acao)}</div>
+                        <div class="hist-corpo">
+                            <div>${de}${para}</div>
+                            ${obs}
+                            <div class="hist-meta">${escapeHtml(h.admin_nome || 'Sistema')} &middot; ${quando}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                lista.innerHTML = '<p style="color:#dc2626;">Erro ao carregar o historico.</p>';
+            }
+        }
+
+        function fecharModalHistorico() {
+            document.getElementById('modalHistorico').style.display = 'none';
         }
 
         // Transferir chamado

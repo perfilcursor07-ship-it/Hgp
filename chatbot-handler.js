@@ -8,6 +8,7 @@ const { MessageMedia } = require('whatsapp-web.js');
 const db = require('./config/database');
 const { validarDescricao } = require('./modules/ai-description-validator');
 const { entregarMensagem, paresLidPn } = require('./modules/whatsapp-entrega');
+const hgpExtras = require('./modules/hgp-extras');
 
 const GATILHO_TESTE = 'JOHNTESTE';
 const MEU_NUMERO_SIMULACAO = '5563984425197';
@@ -186,6 +187,21 @@ function attachChatbot(client, options = {}) {
             console.error(`[HGP] Mensagem NÃO entregue para ${destino}`);
         }
         return ok;
+    }
+
+    async function enviarImagemBoasVindas() {
+        try {
+            const cfg = await hgpExtras.carregarBoasVindas();
+            if (!cfg.ativa || !cfg.arquivo) return;
+            const media = MessageMedia.fromFilePath(cfg.arquivo);
+            await enviarAoUsuario(media);
+            if (cfg.legenda) {
+                await delay(400);
+                await enviarAoUsuario(cfg.legenda);
+            }
+        } catch (erro) {
+            registrarErro(erro, 'Falha ao enviar imagem de boas-vindas HGP');
+        }
     }
 
     async function enviarMensagemDireta(numeroBruto, mensagem) {
@@ -873,6 +889,23 @@ function attachChatbot(client, options = {}) {
                 registrarErro(erro, 'Erro ao registrar contato automaticamente');
             }
 
+            // Números da aba Terceirizados ignoram menu, chamado e avaliação.
+            try {
+                const terceirizado = await hgpExtras.encontrarTerceirizado([
+                    sessionId,
+                    msg.from,
+                    contato?.number
+                ]);
+                if (terceirizado) {
+                    pausarFluxoBot(sessionId);
+                    await hgpExtras.registrarEntrada(terceirizado.id, msg);
+                    console.log(`[HGP] Terceirizado ${terceirizado.nome} — fluxo do bot ignorado`);
+                    return;
+                }
+            } catch (erro) {
+                registrarErro(erro, 'Erro ao verificar terceirizado HGP');
+            }
+
             const emAvaliacao = est && (est.step === 'avaliacao' || est.step === 'avaliacao_motivo');
 
             // Chamado aberto/em atendimento: o bot NÃO pode encerrar sessão nem pedir menu
@@ -958,6 +991,7 @@ function attachChatbot(client, options = {}) {
                     ? '🧪 *MODO SIMULAÇÃO*'
                     : `*🛠️ TI - HGP*\nOlá, *${contato.pushname || 'Prezado'}*.`;
 
+                await enviarImagemBoasVindas();
                 await enviarAoUsuario( saudacao);
                 await delay(500);
                 await enviarAoUsuario( menuPrincipal);
