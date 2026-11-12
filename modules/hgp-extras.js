@@ -156,7 +156,10 @@ async function registrarEntrada(terceirizadoId, msg) {
         }
     }
 
-    if (!mensagem && !mediaUrl) mensagem = '[mensagem sem texto]';
+    if (!mensagem && !mediaUrl) {
+        if (!ehMidia) return null;
+        mensagem = '[mídia]';
+    }
 
     await db.query(
         `INSERT INTO hgp_terceirizado_mensagens
@@ -398,6 +401,7 @@ function registrarRotas(app, deps) {
                 `SELECT id, direcao, mensagem, message_type, media_url, media_mime_type, media_filename, lida, criado_em
                  FROM hgp_terceirizado_mensagens
                  WHERE terceirizado_id = ? AND id > ?
+                   AND NOT (mensagem = '[mensagem sem texto]' AND media_url IS NULL)
                  ORDER BY id ASC
                  LIMIT 300`,
                 [id, Number.isInteger(depois) && depois > 0 ? depois : 0]

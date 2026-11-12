@@ -210,6 +210,7 @@ class BaileysClient extends EventEmitter {
                 }
 
                 const fakeMsg = await this._converterMensagem(msg);
+                if (!fakeMsg) continue;
                 this.emit('message', fakeMsg);
             }
         });
@@ -229,6 +230,23 @@ class BaileysClient extends EventEmitter {
             atual = proxima;
         }
         return atual;
+    }
+
+    _temConteudoVisivel(message) {
+        if (!message || typeof message !== 'object') return false;
+        return Boolean(
+            message.conversation ||
+            message.extendedTextMessage?.text ||
+            message.imageMessage ||
+            message.videoMessage ||
+            message.audioMessage ||
+            message.documentMessage ||
+            message.stickerMessage ||
+            message.contactMessage ||
+            message.contactsArrayMessage ||
+            message.locationMessage ||
+            message.liveLocationMessage
+        );
     }
 
     _jidEhTelefone(valor) {
@@ -260,6 +278,9 @@ class BaileysClient extends EventEmitter {
         const jid = msg.key.remoteJid || '';
         const telefone = await this._resolverTelefone(msg.key);
         const message = this._desembrulharMensagem(msg.message || {});
+        // Reação, recibo, edição e outros avisos internos chegam sem texto.
+        // Não viram bolha "[mensagem sem texto]" no chat.
+        if (!this._temConteudoVisivel(message)) return null;
         const texto = message.conversation || message.extendedTextMessage?.text || message.imageMessage?.caption || message.videoMessage?.caption || '';
         let type = 'chat';
         const hasMedia = !!(message.imageMessage || message.videoMessage || message.audioMessage || message.documentMessage || message.stickerMessage);
