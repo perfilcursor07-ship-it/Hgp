@@ -360,16 +360,34 @@
                 gap: 0;
                 overflow: hidden;
             }
-            body.hgp-conversa .hgp-pane,
-            body.hgp-conversa .hgp-grid,
-            body.hgp-conversa .hgp-chat {
-                flex: 1;
-                min-height: 0;
-                height: 100%;
-                display: flex;
-            }
             body.hgp-conversa .hgp-card:first-child { display: none; }
-            body.hgp-conversa .hgp-chat { flex-direction: column; }
+            body.hgp-conversa .hgp-chat {
+                position: fixed;
+                z-index: 30;
+                left: 0;
+                right: 0;
+                top: 68px;
+                bottom: var(--hgp-teclado, 0px);
+                height: auto;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                border-radius: 0;
+                border-left: 0;
+                border-right: 0;
+            }
+            body.hgp-conversa .hgp-msgs {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+            }
+            body.hgp-conversa .hgp-compose {
+                position: relative;
+                bottom: auto;
+                margin-top: 0;
+                flex-shrink: 0;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            }
         }
     </style>
 </head>
@@ -481,6 +499,16 @@
         function sincronizarModoCelular() {
             const noChat = Boolean(selecionado) && !verListaMobile && window.innerWidth <= 900;
             document.body.classList.toggle('hgp-conversa', noChat);
+            ajustarCampoAoTeclado();
+        }
+
+        function ajustarCampoAoTeclado() {
+            const vv = window.visualViewport;
+            let corte = 0;
+            if (vv && document.body.classList.contains('hgp-conversa')) {
+                corte = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            }
+            document.documentElement.style.setProperty('--hgp-teclado', corte + 'px');
         }
 
         function esc(valor) {
@@ -688,6 +716,10 @@
             sincronizarModoCelular();
         });
         window.addEventListener('resize', sincronizarModoCelular);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', ajustarCampoAoTeclado);
+            window.visualViewport.addEventListener('scroll', ajustarCampoAoTeclado);
+        }
 
         async function carregarBoasVindas() {
             const res = await fetch('/api/hgp/boas-vindas');
