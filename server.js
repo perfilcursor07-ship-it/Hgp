@@ -3507,16 +3507,12 @@ app.get('/usuarios', isAuthenticated, isAdmin, async (req, res) => {
     }
 });
 
-// API - Listar gestores disponíveis para encaminhar (apenas quem está no turno ATUAL)
+// API - Listar técnicos para encaminhar (qualquer um da unidade, sem filtrar turno)
 app.get('/api/usuarios/gestores', isAuthenticated, async (req, res) => {
     try {
         if (req.session.nivelAcesso === 'visualizador') {
             return res.status(403).json({ success: false, message: 'Sem permissão.' });
         }
-
-        const agora = new Date();
-        const diaSemana = agora.getDay();
-        const horaAtual = agora.toTimeString().slice(0, 5);
 
         // Filtro por unidade
         const ids = req.session.unidadeIds;
@@ -3536,17 +3532,12 @@ app.get('/api/usuarios/gestores', isAuthenticated, async (req, res) => {
         const [gestores] = await db.query(`
             SELECT DISTINCT a.id, a.username, a.nome_completo, a.telefone, a.nivel_acesso
             FROM admins a
-            INNER JOIN user_turnos t ON t.admin_id = a.id
             WHERE a.nivel_acesso IN ('administrador', 'gerenciador', 'gestor')
               AND a.ativo = TRUE
               AND a.id != ?
-              AND t.ativo = TRUE
-              AND t.dia_semana = ?
-              AND t.hora_inicio <= ?
-              AND t.hora_fim >= ?
               ${unidWhere}
             ORDER BY a.nome_completo
-        `, [req.session.userId, diaSemana, horaAtual, horaAtual, ...unidParams]);
+        `, [req.session.userId, ...unidParams]);
 
         res.json({ success: true, gestores });
     } catch (error) {

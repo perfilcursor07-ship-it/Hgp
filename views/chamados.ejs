@@ -2078,7 +2078,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label style="font-size:13px;color:#64748b;margin-bottom:8px;">Encaminhar para (técnicos no turno atual):</label>
+                    <label style="font-size:13px;color:#64748b;margin-bottom:8px;">Encaminhar para (qualquer técnico):</label>
                     <div id="listaGestoresEncaminhar" style="max-height:280px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
                         <div style="padding:14px;text-align:center;color:#94a3b8;font-size:13px;">Carregando...</div>
                     </div>
@@ -2855,7 +2855,7 @@
 
         function popularListaGestores(lista, gestores) {
             if (gestores.length === 0) {
-                lista.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">😕 Nenhum técnico no turno agora.</div>';
+                lista.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">😕 Nenhum técnico disponível.</div>';
                 return;
             }
             let html = '';
@@ -2864,7 +2864,7 @@
                     <div class="transfer-card" data-id="${g.id}" onclick="selecionarGestor(this, ${g.id})">
                         <div class="transfer-card-name">${escapeHtml(g.nome_completo || g.username)}</div>
                         <div class="transfer-card-info">
-                            <span class="transfer-card-nivel">${escapeHtml(g.nivel_acesso || 'Técnico no turno atual')}</span>
+                            <span class="transfer-card-nivel">${escapeHtml(g.nivel_acesso || 'Técnico')}</span>
                         </div>
                     </div>`;
             });
