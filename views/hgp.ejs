@@ -286,21 +286,90 @@
             line-height: 1.4;
         }
 
+        .hgp-back {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            color: #0f172a;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
         @media (max-width: 900px) {
+            .dashboard,
+            .main-content {
+                max-width: 100vw;
+                overflow-x: hidden;
+            }
+            .content.hgp-content {
+                padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
+                gap: 8px;
+            }
+            .hgp-note { font-size: 12px; padding: 8px 10px; }
+            .hgp-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .hgp-tab { white-space: nowrap; flex-shrink: 0; }
             .hgp-grid {
-                grid-template-columns: 1fr;
+                display: flex;
+                flex-direction: column;
                 height: auto;
-                min-height: calc(100vh - 160px);
+                min-height: 0;
+                gap: 10px;
             }
             .hgp-card:first-child {
-                max-height: 280px;
+                max-height: none;
+                overflow: visible;
             }
-            .hgp-chat {
-                min-height: 520px;
-                height: calc(100vh - 220px);
+            .hgp-list { max-height: 46vh; }
+            .hgp-chat { display: none; }
+            .hgp-back { display: inline-flex; align-items: center; justify-content: center; }
+            .hgp-chat-header {
+                padding: 10px 12px;
+                align-items: flex-start;
+                flex-wrap: wrap;
             }
+            .hgp-chat-header h2 { font-size: 15px; word-break: break-word; }
+            .hgp-chat-header small { display: block; word-break: break-all; }
             .hgp-bubble { max-width: 88%; }
+            .hgp-compose {
+                padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+            }
+            .hgp-compose textarea {
+                font-size: 16px;
+                min-height: 42px;
+            }
             .hgp-compose-hint { display: none; }
+            .hgp-send-btn { width: 44px; height: 44px; }
+
+            body.hgp-conversa .hgp-note,
+            body.hgp-conversa .hgp-tabs { display: none; }
+            body.hgp-conversa .dashboard,
+            body.hgp-conversa .main-content {
+                height: 100dvh;
+                min-height: 0;
+                overflow: hidden;
+            }
+            body.hgp-conversa .content.hgp-content {
+                flex: 1;
+                min-height: 0;
+                padding: 0;
+                gap: 0;
+                overflow: hidden;
+            }
+            body.hgp-conversa .hgp-pane,
+            body.hgp-conversa .hgp-grid,
+            body.hgp-conversa .hgp-chat {
+                flex: 1;
+                min-height: 0;
+                height: 100%;
+                display: flex;
+            }
+            body.hgp-conversa .hgp-card:first-child { display: none; }
+            body.hgp-conversa .hgp-chat { flex-direction: column; }
         }
     </style>
 </head>
@@ -340,7 +409,8 @@
 
                         <div class="hgp-card hgp-chat">
                             <div class="hgp-chat-header">
-                                <div>
+                                <button type="button" class="hgp-back" id="btnVoltarChat" aria-label="Voltar para a lista">←</button>
+                                <div style="min-width:0;flex:1;">
                                     <h2 id="chatTitulo">Selecione um contato</h2>
                                     <small id="chatSub"></small>
                                 </div>
@@ -406,6 +476,12 @@
         let contatos = [];
         let selecionado = null;
         let ultimoId = 0;
+        let verListaMobile = true;
+
+        function sincronizarModoCelular() {
+            const noChat = Boolean(selecionado) && !verListaMobile && window.innerWidth <= 900;
+            document.body.classList.toggle('hgp-conversa', noChat);
+        }
 
         function esc(valor) {
             return String(valor ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -481,6 +557,7 @@
             chatTexto.placeholder = podeEnviar
                 ? 'Escreva a mensagem para o contato…'
                 : 'Contato inativo — reative para enviar mensagens';
+            sincronizarModoCelular();
         }
 
         function bolha(m) {
@@ -493,6 +570,7 @@
         }
 
         async function abrirConversa(id) {
+            verListaMobile = false;
             selecionado = contatos.find((c) => c.id === id) || null;
             ultimoId = 0;
             renderLista();
@@ -598,10 +676,18 @@
             const data = await res.json();
             if (!data.success) return alert(data.message);
             selecionado = null;
+            verListaMobile = true;
             ultimoId = 0;
             chatMsgs.innerHTML = '<div class="hgp-empty">As mensagens aparecem aqui.</div>';
+            sincronizarModoCelular();
             await carregarLista();
         });
+
+        document.getElementById('btnVoltarChat').addEventListener('click', () => {
+            verListaMobile = true;
+            sincronizarModoCelular();
+        });
+        window.addEventListener('resize', sincronizarModoCelular);
 
         async function carregarBoasVindas() {
             const res = await fetch('/api/hgp/boas-vindas');
