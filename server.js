@@ -1166,7 +1166,12 @@ hgpExtras.registrarRotas(app, {
         connected: Boolean(whatsappClient) && whatsappState === 'connected'
     }),
     resolverDestino: (...candidatos) => resolveWhatsAppDestination(...candidatos),
-    entregarMensagem
+    entregarMensagem,
+    silenciarBotTerceirizado: (...candidatos) => {
+        if (whatsappChatbotController && typeof whatsappChatbotController.silenciarPorTelefone === 'function') {
+            whatsappChatbotController.silenciarPorTelefone(...candidatos);
+        }
+    }
 });
 
 // Rotas

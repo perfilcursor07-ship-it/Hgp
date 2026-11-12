@@ -30,13 +30,37 @@ function telefoneCanonico(valor) {
         || '';
 }
 
+function sufixoLocal(valor) {
+    const digits = String(valor || '').replace(/\D/g, '');
+    if (digits.length < 8) return '';
+    // Últimos 8 dígitos: cobre variação do 9º dígito e DDD quando o JID veio incompleto
+    return digits.slice(-8);
+}
+
 function numerosCompativeis(candidatos, telefoneCadastrado) {
     const alvos = new Set();
+    const sufixos = new Set();
     for (const candidato of candidatos) {
-        for (const variacao of variacoesNumero(candidato)) alvos.add(variacao);
+        if (candidato == null || candidato === '') continue;
+        for (const variacao of variacoesNumero(candidato)) {
+            alvos.add(variacao);
+            const sufixo = sufixoLocal(variacao);
+            if (sufixo) sufixos.add(sufixo);
+        }
+        // Também aceita o bruto (ex.: 5563...@c.us, só dígitos do contato)
+        const bruto = String(candidato).replace(/@.*$/, '').replace(/\D/g, '');
+        if (bruto.length >= 8) {
+            alvos.add(bruto);
+            sufixos.add(bruto.slice(-8));
+        }
     }
-    if (!alvos.size) return false;
-    return variacoesNumero(telefoneCadastrado).some((variacao) => alvos.has(variacao));
+    if (!alvos.size && !sufixos.size) return false;
+
+    const cadastroVars = variacoesNumero(telefoneCadastrado);
+    if (cadastroVars.some((variacao) => alvos.has(variacao))) return true;
+
+    const cadastroSufixo = sufixoLocal(telefoneCadastrado);
+    return Boolean(cadastroSufixo && sufixos.has(cadastroSufixo));
 }
 
 function extensaoPorMime(mime, nomeOriginal) {
@@ -251,7 +275,13 @@ const uploadBoasVindas = multer({
 });
 
 function registrarRotas(app, deps) {
-    const { isAuthenticated, obterClienteHgp, resolverDestino, entregarMensagem } = deps;
+    const { isAuthenticated, obterClienteHgp, resolverDestino, entregarMensagem, silenciarBotTerceirizado } = deps;
+
+    function silenciarBot(telefone) {
+        if (typeof silenciarBotTerceirizado === 'function' && telefone) {
+            try { silenciarBotTerceirizado(telefone); } catch (e) { /* ignore */ }
+        }
+    }
 
     const podeComunicacaoHgp = (req, res, next) => {
         if (req.session.nivelAcesso === 'visualizador') {
@@ -308,6 +338,7 @@ function registrarRotas(app, deps) {
                 `INSERT INTO hgp_terceirizados (nome, telefone, observacao, ativo) VALUES (?, ?, ?, TRUE)`,
                 [nome, telefone, observacao || null]
             );
+            silenciarBot(telefone);
             res.json({ success: true, id: result.insertId, message: 'Terceirizado cadastrado. Esse número não vai mais acionar o bot do HGP.' });
         } catch (error) {
             console.error('[HGP direto] criar:', error.message);
@@ -340,7 +371,8 @@ function registrarRotas(app, deps) {
                 `UPDATE hgp_terceirizados SET nome = ?, telefone = ?, observacao = ?, ativo = ? WHERE id = ?`,
                 [nome, telefone, observacao || null, ativo, id]
             );
-            res.json({ success: true, message: ativo ? 'Contato atualizado.' : 'Contato desativado. O bot do HGP volta a atender esse número.' });
+            if (ativo) silenciarBot(telefone);
+            res.json({ success: true, message: ativo ? 'Contato atualizado. Bot desligado para esse número.' : 'Contato desativado. O bot do HGP volta a atender esse número.' });
         } catch (error) {
             console.error('[HGP direto] atualizar:', error.message);
             res.status(500).json({ success: false, message: 'Erro ao atualizar terceirizado' });

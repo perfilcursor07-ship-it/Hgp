@@ -145,8 +145,10 @@ function attachChatbot(client, options = {}) {
         }
 
         if (origem.endsWith('@lid')) {
-            if (lidSessionMap.has(origem)) {
-                const cached = lidSessionMap.get(origem);
+            const cached = lidSessionMap.get(origem);
+            // Se o cache ficou com @lid (resolução falhou antes), tenta de novo
+            const cacheValido = cached && !String(cached).endsWith('@lid');
+            if (cacheValido && !pnJid) {
                 return {
                     contato,
                     chat,
@@ -155,7 +157,7 @@ function attachChatbot(client, options = {}) {
                 };
             }
 
-            const sessionId = pnJid || chatIdDoChat || origem;
+            const sessionId = pnJid || (cacheValido ? cached : null) || chatIdDoChat || origem;
             lidSessionMap.set(origem, sessionId);
             if (pnJid) lidSessionMap.set(pnJid, sessionId);
 
@@ -166,8 +168,34 @@ function attachChatbot(client, options = {}) {
             contato,
             chat,
             chatId: chatIdDoChat || origem,
-            sessionId: origem
+            sessionId: pnJid || origem
         };
+    }
+
+    function silenciarPorTelefone(...candidatos) {
+        const keys = new Set();
+        for (const candidato of candidatos) {
+            if (candidato == null || candidato === '') continue;
+            const raw = String(candidato);
+            keys.add(raw);
+            for (const variacao of gerarVariacoesNumero(raw)) {
+                keys.add(variacao);
+                keys.add(`${variacao}@c.us`);
+                keys.add(`${variacao}@s.whatsapp.net`);
+            }
+        }
+        for (const [lid, sid] of lidSessionMap.entries()) {
+            if (keys.has(lid) || keys.has(sid) || keys.has(String(sid || '').replace(/@.*$/, ''))) {
+                keys.add(lid);
+                keys.add(sid);
+            }
+        }
+        for (const key of keys) {
+            if (!key) continue;
+            liberarSessao(key);
+            sessoesComChamadoAtivo.delete(key);
+            bloqueados.delete(key);
+        }
     }
 
     async function enviarAoUsuario(content, destOverride = null) {
@@ -889,17 +917,26 @@ function attachChatbot(client, options = {}) {
                 registrarErro(erro, 'Erro ao registrar contato automaticamente');
             }
 
-            // Números da aba Terceirizados ignoram menu, chamado e avaliação.
+            // Números da aba Terceirizados: bot desligado — só registra no chat /hgp.
             try {
                 const terceirizado = await hgpExtras.encontrarTerceirizado([
                     sessionId,
                     msg.from,
-                    contato?.number
+                    chatId,
+                    contato?.number,
+                    contato?.id?._serialized,
+                    contato?.id?.user
                 ]);
                 if (terceirizado) {
-                    pausarFluxoBot(sessionId);
+                    silenciarPorTelefone(
+                        sessionId,
+                        msg.from,
+                        chatId,
+                        contato?.number,
+                        terceirizado.telefone
+                    );
                     await hgpExtras.registrarEntrada(terceirizado.id, msg);
-                    console.log(`[HGP] Terceirizado ${terceirizado.nome} — fluxo do bot ignorado`);
+                    console.log(`[HGP] Terceirizado ${terceirizado.nome} (${terceirizado.telefone}) — bot ignorado`);
                     return;
                 }
             } catch (erro) {
@@ -1337,6 +1374,7 @@ function attachChatbot(client, options = {}) {
         categories: categoriasMap,
         mode: options.managedByServer ? 'shared-session' : 'standalone',
         liberarSessao,
+        silenciarPorTelefone,
         reiniciarFluxoPorEncerramento
     };
 
