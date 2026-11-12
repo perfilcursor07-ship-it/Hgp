@@ -209,7 +209,7 @@ class BaileysClient extends EventEmitter {
                     }
                 }
 
-                const fakeMsg = this._converterMensagem(msg);
+                const fakeMsg = await this._converterMensagem(msg);
                 this.emit('message', fakeMsg);
             }
         });
@@ -231,8 +231,34 @@ class BaileysClient extends EventEmitter {
         return atual;
     }
 
-    _converterMensagem(msg) {
+    _jidEhTelefone(valor) {
+        return typeof valor === 'string' && (valor.endsWith('@s.whatsapp.net') || valor.endsWith('@c.us'));
+    }
+
+    async _resolverTelefone(key) {
+        const campos = [key?.remoteJidAlt, key?.participantAlt, key?.senderPn, key?.participantPn, key?.remoteJid, key?.participant];
+        for (const campo of campos) {
+            if (this._jidEhTelefone(campo)) return String(campo).replace(/@.*$/, '').replace(/\D/g, '');
+        }
+
+        const lid = String(key?.remoteJid || '');
+        if (!lid.endsWith('@lid')) return '';
+
+        const mapping = this.sock?.signalRepository?.lidMapping || this.sock?.lidMapping;
+        if (typeof mapping?.getPNForLID !== 'function') return '';
+        try {
+            const pn = await mapping.getPNForLID(lid);
+            const texto = typeof pn === 'string' ? pn : (pn?._serialized || pn?.id || '');
+            return String(texto || '').replace(/@.*$/, '').replace(/\D/g, '');
+        } catch (error) {
+            console.warn(`[Baileys:${this.clientId}] getPNForLID falhou:`, error.message);
+            return '';
+        }
+    }
+
+    async _converterMensagem(msg) {
         const jid = msg.key.remoteJid || '';
+        const telefone = await this._resolverTelefone(msg.key);
         const message = this._desembrulharMensagem(msg.message || {});
         const texto = message.conversation || message.extendedTextMessage?.text || message.imageMessage?.caption || message.videoMessage?.caption || '';
         let type = 'chat';
@@ -245,12 +271,26 @@ class BaileysClient extends EventEmitter {
         const pushName = msg.pushName || '';
         const self = this;
         const mediaPayload = message.imageMessage || message.videoMessage || message.audioMessage || message.documentMessage || message.stickerMessage || null;
+        // Não usar o id @lid como se fosse telefone — isso fazia o bot ignorar a lista de terceirizados.
+        const numeroContato = telefone || (jid.endsWith('@lid') ? '' : jid.replace(/@.*$/, '').replace(/\D/g, ''));
+
+        if (jid.endsWith('@lid')) {
+            console.log(`[Baileys:${this.clientId}] LID ${jid} → telefone ${telefone || 'nao-resolvido'} (${pushName || 'sem nome'})`);
+        }
 
         return {
             from: jid, to: '', body: texto, type, hasMedia, fromMe: false,
+            phoneNumber: telefone || '',
             timestamp: msg.messageTimestamp || Math.floor(Date.now() / 1000),
             id: { _serialized: msg.key.id || `${jid}-${Date.now()}` },
-            async getContact() { return { pushname: pushName, name: pushName, number: jid.replace(/@.*$/, '') }; },
+            async getContact() {
+                return {
+                    pushname: pushName,
+                    name: pushName,
+                    number: numeroContato,
+                    id: numeroContato ? { _serialized: `${numeroContato}@s.whatsapp.net`, user: numeroContato } : { _serialized: jid, user: jid.replace(/@.*$/, '') }
+                };
+            },
             async getChat() {
                 return {
                     id: { _serialized: jid },

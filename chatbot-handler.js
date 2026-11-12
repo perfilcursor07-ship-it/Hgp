@@ -923,6 +923,7 @@ function attachChatbot(client, options = {}) {
                     sessionId,
                     msg.from,
                     chatId,
+                    msg.phoneNumber,
                     contato?.number,
                     contato?.id?._serialized,
                     contato?.id?.user
