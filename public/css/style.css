@@ -2967,3 +2967,209 @@ body.sidebar-collapsed .sidebar-toggle-btn .toggle-chevron {
     color: #2563eb;
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
+
+/* ═══ Refino global ═══════════════════════════════════════════════════
+   Base visual compartilhada por todas as telas: fundo neutro, cartões,
+   modais, campos e botões com o mesmo acabamento. Fica no fim do arquivo
+   de propósito, para valer sobre as regras antigas acima. */
+
+body {
+    background: #f4f6f9;
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+button, input, select, textarea { font-family: inherit; }
+
+::selection { background: rgba(37, 211, 102, 0.24); }
+
+/* Barras de rolagem discretas */
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+
+/* Foco visível para quem navega pelo teclado */
+:where(a, button, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid #16a34a;
+    outline-offset: 2px;
+}
+
+/* Sem isto, um conteúdo largo (fileira de filtros, tabela) esticava a página
+   inteira no celular em vez de rolar dentro do próprio bloco. */
+.main-content { min-width: 0; }
+
+/* ── Barra superior ── */
+.topbar {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: none;
+    border-bottom: 1px solid #e6eaf0;
+    padding: 14px 24px;
+}
+.topbar h2 {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+/* ── Cartões ── */
+.card {
+    background: #fff;
+    border: 1px solid #e6eaf0;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+.card h2 { font-size: 16px; font-weight: 800; }
+.card h2::before { height: 18px; border-radius: 3px; }
+
+.no-messages { padding: 40px 20px; font-size: 14px; }
+
+/* ── Modais ── */
+.modal {
+    background-color: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(3px);
+    padding: 16px;
+}
+.modal-content {
+    width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+    animation: modalEntra 0.16s ease-out;
+}
+@keyframes modalEntra {
+    from { opacity: 0; transform: translateY(8px) scale(0.985); }
+    to   { opacity: 1; transform: none; }
+}
+.modal-header {
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+}
+.modal-header h2 {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+.modal-close {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 24px;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+}
+.modal-close:hover { background: #f1f5f9; }
+.modal-content form,
+.modal-body { padding: 18px 20px 20px; }
+.modal-content form > p,
+.modal-body > p {
+    font-size: 13.5px;
+    color: #475569;
+    margin-bottom: 14px;
+}
+.modal-actions {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top-color: #eef1f4;
+}
+.modal-actions .btn {
+    min-width: 110px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.modal-actions .btn-secondary {
+    background: #fff;
+    color: #334155;
+    border: 1px solid #d5dbe3;
+}
+.modal-actions .btn-secondary:hover {
+    background: #f1f5f9;
+    transform: none;
+}
+
+/* ── Botões ── */
+.btn-primary {
+    border-radius: 10px;
+    font-weight: 700;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.28);
+}
+.btn-secondary:hover { transform: none; }
+
+/* ── Campos de formulário ── */
+.modal .form-group { margin-bottom: 16px; }
+.form-group label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group input[type="email"],
+.form-group input[type="number"],
+.form-group input[type="tel"],
+.form-group input[type="date"],
+.form-group input[type="time"],
+.form-group input[type="search"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d5dbe3;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-group textarea {
+    display: block;
+    min-height: 84px;
+    line-height: 1.5;
+    resize: vertical;
+}
+.form-group input[type="text"]:focus,
+.form-group input[type="password"]:focus,
+.form-group input[type="email"]:focus,
+.form-group input[type="number"]:focus,
+.form-group input[type="tel"]:focus,
+.form-group input[type="date"]:focus,
+.form-group input[type="time"]:focus,
+.form-group input[type="search"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #25d366;
+    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.15);
+}
+.form-group ::placeholder { color: #94a3b8; }
+.form-group small {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+@media (max-width: 768px) {
+    .modal { padding: 10px; }
+    .modal-content { width: 100%; }
+    .modal-header,
+    .modal-content form,
+    .modal-body { padding: 14px 16px; }
+    .topbar h2 { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-content { animation: none; }
+}

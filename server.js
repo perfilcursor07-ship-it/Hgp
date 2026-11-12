@@ -1092,6 +1092,26 @@ const listChamadosOverview = async (req = null) => {
 
     const chamados = [...ativos, ...finalizados, ...buscaExtra];
 
+    // Mensagens não lidas do solicitante: uma consulta só para a lista inteira
+    // (antes a tela fazia uma requisição por chamado a cada atualização).
+    chamados.forEach((c) => { c.nao_lidas = 0; });
+    if (chamados.length > 0) {
+        try {
+            const [naoLidas] = await db.query(`
+                SELECT chamado_id, COUNT(*) AS total
+                FROM chat_messages
+                WHERE remetente_tipo = 'solicitante'
+                  AND lida = FALSE
+                  AND chamado_id IN (?)
+                GROUP BY chamado_id
+            `, [chamados.map((c) => c.id)]);
+            const porChamado = new Map(naoLidas.map((r) => [Number(r.chamado_id), Number(r.total)]));
+            chamados.forEach((c) => { c.nao_lidas = porChamado.get(Number(c.id)) || 0; });
+        } catch (error) {
+            console.error('Erro ao contar mensagens não lidas (overview):', error.message);
+        }
+    }
+
     // Contagem real no banco (não só dos registros carregados)
     const [counts] = await db.query(`
         SELECT

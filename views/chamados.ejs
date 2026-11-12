@@ -1506,9 +1506,6 @@
             font-size: 10px;
             border: 2px solid #fff;
         }
-        /* Linha com mensagem não lida: nome em destaque */
-        .wa-conv:has(.chat-badge[style*="flex"]) .wa-conv-name { font-weight: 800; }
-        .wa-conv:has(.chat-badge[style*="flex"]) .wa-conv-time { color: #16a34a; }
 
         .wa-conv-actions {
             border-radius: 12px;
@@ -1783,6 +1780,240 @@
             .chamados-wa-chat .chat-encerrar-btn span { display: none; }
             .chamados-wa-chat .chat-encerrar-btn { padding: 7px 9px; }
         }
+
+        /* ═══ Usabilidade: filtros, ações no chat, avisos ═══════════════ */
+
+        /* Filtros: uma única fileira de chips (as abas duplicadas saíram) */
+        .stat-chip[data-filter="todos"] { padding-left: 14px; }
+        .stat-chip.stat-card-active {
+            border-color: #16a34a;
+            background: #f0fdf4;
+            color: #166534;
+        }
+        .topstrip-sep {
+            width: 1px;
+            height: 22px;
+            background: #dbe1e8;
+            margin: 0 4px;
+            flex-shrink: 0;
+        }
+        .stat-chip-meus svg { color: #0ea5e9; flex-shrink: 0; }
+        .topstrip-unidade { border-radius: 10px; padding: 8px 12px; }
+
+        /* Busca com dica do atalho */
+        .chamados-search-wrap { position: relative; }
+        .chamados-search-kbd {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-bottom-width: 2px;
+            border-radius: 5px;
+            padding: 0 6px;
+            pointer-events: none;
+        }
+        .chamados-search:focus ~ .chamados-search-kbd,
+        .chamados-search:not(:placeholder-shown) ~ .chamados-search-kbd { display: none; }
+        @media (hover: none) { .chamados-search-kbd { display: none; } }
+
+        /* Lista vazia */
+        .chamados-empty {
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 44px 20px;
+            text-align: center;
+            color: #94a3b8;
+        }
+        .chamados-empty strong { font-size: 14px; font-weight: 700; color: #475569; word-break: break-word; }
+        .chamados-empty-btn {
+            border: 1px solid #d5dbe3;
+            background: #fff;
+            color: #334155;
+            font-family: inherit;
+            font-size: 12.5px;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 9px;
+            cursor: pointer;
+        }
+        .chamados-empty-btn:hover { background: #f1f5f9; }
+        .secao-empty { color: #94a3b8; text-align: center; }
+
+        /* Linhas: foco pelo teclado e não lidas */
+        .wa-conv:focus-visible { outline: 2px solid #16a34a; outline-offset: -2px; }
+        .wa-conv:focus-within .wa-conv-actions {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(-50%) translateX(0);
+        }
+        .wa-conv.tem-nao-lidas .wa-conv-name { font-weight: 800; }
+        .wa-conv.tem-nao-lidas .wa-conv-time { color: #16a34a; }
+        .wa-conv .chat-badge { width: auto; min-width: 18px; padding: 0 4px; border-radius: 999px; }
+        .wa-conv-time { text-transform: capitalize; }
+        .ca-menu-trigger svg { width: 15px; height: 15px; }
+        .ca-menu { min-width: 190px; }
+        .ca-menu-item { white-space: nowrap; }
+
+        /* Cabeçalho do chat: status + ações do chamado aberto */
+        .chamados-wa-chat .chat-header-sub { flex-wrap: wrap; row-gap: 4px; align-items: center; }
+        #chatProtocolo { cursor: copy; }
+        #chatProtocolo:hover { background: #dfe6ee; }
+        #chatStatusChip { display: inline-flex; align-items: center; gap: 8px; }
+        #chatStatusChip .status-chip {
+            font-size: 9.5px !important;
+            padding: 2px 8px !important;
+            border-radius: 999px !important;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .chat-header-atend { font-size: 12px; font-weight: 600; color: #6366f1; }
+        .chat-header-atend::before { content: '· '; color: #94a3b8; }
+
+        /* As ações entram na ordem: Atender · Encerrar · mais · detalhes · fechar */
+        .chat-header-acoes { display: contents; }
+        .chat-header-acoes .chat-acao-btn { order: 1; }
+        .chamados-wa-chat .chat-encerrar-btn { order: 2; }
+        .chat-header-acoes .ca-menu-wrap { order: 3; }
+        .chamados-wa-chat .chat-toggle-info-btn { order: 4; }
+        .chat-acao-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 34px;
+            padding: 0 14px;
+            border-radius: 9px;
+            border: 1px solid #d5dbe3;
+            background: #fff;
+            color: #334155;
+            font-family: inherit;
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .chat-acao-btn svg { width: 15px; height: 15px; }
+        .chat-acao-btn.primaria { background: #16a34a; border-color: #16a34a; color: #fff; }
+        .chat-acao-btn.primaria:hover { background: #15803d; border-color: #15803d; }
+        .chamados-wa-chat .chat-encerrar-btn { height: 34px; padding: 0 14px; }
+        .chat-header-acoes .ca-menu-trigger {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border-radius: 9px !important;
+            background: #fff !important;
+            border-color: #d5dbe3 !important;
+        }
+        .chat-header-acoes .ca-btn:hover { transform: none; background: #f1f5f9 !important; }
+        .chat-header-acoes .ca-menu { top: calc(100% + 6px); }
+
+        .chat-finalizado-aviso {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .wa-chat-placeholder-dica { font-size: 12px !important; color: #94a3b8 !important; margin-top: 6px !important; }
+        .wa-chat-placeholder-dica kbd {
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-bottom-width: 2px;
+            border-radius: 5px;
+            padding: 0 6px;
+        }
+
+        /* Painel de detalhes: rótulos sem ícones, leitura mais limpa */
+        .chamados-wa-chat .csf-label { text-transform: uppercase; }
+        .chamados-wa-chat .csf-descricao { background: #f8fafc; border-color: #e6eaf0; }
+
+        /* Modais desta tela */
+        .linha-clicavel { cursor: pointer; }
+        .linha-clicavel:hover td { background: #f0fdf4 !important; }
+        #modalMeusAtendimentos .messages-table { table-layout: auto; }
+        #modalMeusAtendimentos .messages-table td { font-size: 13px !important; padding: 10px !important; }
+        #modalDetalhes .modal-content p { font-size: 14px; color: #334155; }
+        #modalDetalhes h3, #modalWhatsApp h3 { font-size: 13px !important; text-transform: uppercase; letter-spacing: 0.4px; }
+
+        /* Avisos (toasts) empilhados */
+        .toast-pilha {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast-item {
+            pointer-events: auto;
+            max-width: min(380px, calc(100vw - 40px));
+            padding: 11px 16px 11px 14px;
+            border-radius: 10px;
+            background: #0f172a;
+            color: #fff;
+            font-size: 13.5px;
+            font-weight: 600;
+            line-height: 1.4;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+            border-left: 4px solid #22c55e;
+            cursor: pointer;
+            animation: toastEntra 0.18s ease-out;
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .toast-item.toast-erro { border-left-color: #ef4444; }
+        .toast-item.saindo { opacity: 0; transform: translateY(6px); }
+        @keyframes toastEntra {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        @media (max-width: 900px) {
+            .topstrip-sep { display: none; }
+            .chamados-wa-inbox { max-width: none; }
+            .chamados-topstrip { flex-wrap: wrap; }
+            .topstrip-chips { flex: 1 1 100%; }
+            .toast-pilha { left: 12px; right: 12px; bottom: 12px; align-items: stretch; }
+            .toast-item { max-width: none; }
+            .chat-acao-btn { padding: 0 11px; }
+        }
+
+        /* Toque: as ações saem da linha (espremiam o nome) e ficam no cabeçalho da conversa */
+        @media (hover: none) {
+            .wa-conv-actions { display: none; }
+        }
+
+        .ca-menu-item.so-mobile { display: none; }
+        @media (max-width: 768px) {
+            /* Cabeçalho da conversa enxuto: Encerrar vai para o menu "mais ações" */
+            .chamados-wa-chat .chat-encerrar-btn { display: none !important; }
+            .chat-header-acoes .ca-menu-item.so-mobile { display: flex; }
+            .chamados-wa-chat .chat-modal-header { padding: 8px 10px; gap: 8px; }
+            #chatSolicitanteTelefone,
+            .chamados-wa-chat .chat-header-dot { display: none; }
+            .chamados-wa-chat .chat-header-info { min-width: 0; }
+            .chamados-wa-chat .chat-header-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        }
+        @media (max-width: 520px) {
+            .chamados-wa-chat .chat-header-avatar { display: none; }
+            .chat-header-atend { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -1810,18 +2041,21 @@
             <div class="content chamados-content">
                 <!-- Barra superior compacta: stats em chips + unidade + meus chamados -->
                 <div class="chamados-topstrip">
-                    <div class="topstrip-chips">
+                    <div class="topstrip-chips" role="tablist" aria-label="Filtrar chamados por status">
+                        <button class="stat-chip stat-card-active" data-filter="todos" onclick="aplicarFiltro('todos')">
+                            Todos
+                        </button>
                         <button class="stat-chip" data-filter="triagem" id="chipTriagem" style="display:none;" onclick="aplicarFiltro('triagem')">
                             <span class="stat-chip-dot" style="background:#ef4444;"></span>
                             Em triagem <strong id="statsTriagem"><%= contagem.triagem || 0 %></strong>
                         </button>
-                        <button class="stat-chip" data-filter="aberto" onclick="aplicarFiltro('aberto')">
-                            <span class="stat-chip-dot" style="background:#22c55e;"></span>
-                            Abertos <strong id="statsAberto"><%= contagem.aberto || 0 %></strong>
-                        </button>
                         <button class="stat-chip" data-filter="pendente" onclick="aplicarFiltro('pendente')">
                             <span class="stat-chip-dot" style="background:#f97316;"></span>
                             Pendentes <strong id="statsPendente"><%= contagem.pendente || 0 %></strong>
+                        </button>
+                        <button class="stat-chip" data-filter="aberto" onclick="aplicarFiltro('aberto')">
+                            <span class="stat-chip-dot" style="background:#22c55e;"></span>
+                            Abertos <strong id="statsAberto"><%= contagem.aberto || 0 %></strong>
                         </button>
                         <button class="stat-chip" data-filter="em_atendimento" onclick="aplicarFiltro('em_atendimento')">
                             <span class="stat-chip-dot" style="background:#3b82f6;"></span>
@@ -1831,8 +2065,9 @@
                             <span class="stat-chip-dot" style="background:#8b5cf6;"></span>
                             Finalizados <strong id="statsFinalizado"><%= contagem.finalizado || 0 %></strong>
                         </button>
-                        <button class="stat-chip stat-chip-meus" onclick="carregarMeusAtendimentos()">
-                            <span class="stat-chip-dot" style="background:#0ea5e9;"></span>
+                        <span class="topstrip-sep" aria-hidden="true"></span>
+                        <button class="stat-chip stat-chip-meus" onclick="carregarMeusAtendimentos()" title="Ver os chamados que você atendeu">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             Meus atendimentos
                             <span id="bannerMeusChamadosPage" style="display:none;"><strong id="bannerQtdPage" class="stat-chip-badge">0</strong></span>
                         </button>
@@ -1850,24 +2085,21 @@
                     <!-- Inbox (esquerda) -->
                     <aside class="chamados-wa-inbox">
                         <div class="chamados-toolbar">
-                            <div class="filter-tabs">
-                                <button class="filter-tab active" data-filter="todos" onclick="aplicarFiltro('todos')">Todos</button>
-                                <button class="filter-tab" data-filter="triagem" id="tabTriagem" style="display:none;" onclick="aplicarFiltro('triagem')">Triagem</button>
-                                <button class="filter-tab" data-filter="pendente" onclick="aplicarFiltro('pendente')">Pendentes</button>
-                                <button class="filter-tab" data-filter="aberto" onclick="aplicarFiltro('aberto')">Abertos</button>
-                                <button class="filter-tab" data-filter="em_atendimento" onclick="aplicarFiltro('em_atendimento')">Em Atend.</button>
-                                <button class="filter-tab" data-filter="finalizado" onclick="aplicarFiltro('finalizado')">Finalizados</button>
-                            </div>
                             <div class="chamados-toolbar-right">
                                 <div class="chamados-search-wrap">
                                     <svg class="chamados-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                    <input type="search" id="chamadosBusca" class="chamados-search" placeholder="Buscar protocolo ou nome..." oninput="debounceBusca(this.value)">
+                                    <input type="search" id="chamadosBusca" class="chamados-search" placeholder="Buscar protocolo, nome ou setor" aria-label="Buscar chamados" autocomplete="off" oninput="debounceBusca(this.value)">
+                                    <kbd class="chamados-search-kbd" title="Atalho: tecle / para buscar">/</kbd>
                                 </div>
                                 <span id="chamadosCount" class="chamados-count"></span>
                             </div>
                         </div>
                         <div class="chamados-inbox-scroll">
-                            <p id="chamadosEmptyState" class="no-messages" style="display: <%= chamados.length === 0 ? 'block' : 'none' %>; padding: 28px 16px; text-align: center;">📭 Nenhum chamado encontrado</p>
+                            <div id="chamadosEmptyState" class="chamados-empty" style="display: <%= chamados.length === 0 ? 'flex' : 'none' %>;">
+                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                                <strong id="chamadosEmptyTitulo">Nenhum chamado encontrado</strong>
+                                <button type="button" id="chamadosEmptyLimpar" class="chamados-empty-btn" style="display:none;" onclick="limparFiltros()">Limpar busca e filtros</button>
+                            </div>
 
                             <section class="chamados-secao" id="secaoAtivos">
                                 <div class="secao-header secao-header-ativos" onclick="toggleSecaoChamados('secaoAtivos')">
@@ -1881,7 +2113,7 @@
                                     </div>
                                 </div>
                                 <div class="secao-body">
-                                    <p id="emptyAtivos" class="no-messages secao-empty" style="display:none;">✅ Nenhum chamado em aberto no momento</p>
+                                    <p id="emptyAtivos" class="no-messages secao-empty" style="display:none;">Nenhum chamado aguardando no momento</p>
                                     <div id="listaAtivos" class="wa-conv-list"></div>
                                     <div id="paginacaoAtivos" class="paginacao-secao" style="display:none;align-items:center;justify-content:space-between;">
                                         <span id="paginacaoAtivosInfo" style="font-size:12px;color:#64748b;"></span>
@@ -1896,14 +2128,14 @@
                                         <span class="secao-dot" style="background:#8b5cf6;"></span>
                                         Finalizados
                                         <span class="secao-toggle">▼</span>
-                                        <span class="secao-expand-hint">clique para expandir</span>
+                                        <span class="secao-expand-hint">mostrar</span>
                                     </span>
                                     <div class="secao-header-actions">
                                         <span class="secao-count" id="countFinalizados">0</span>
                                     </div>
                                 </div>
                                 <div class="secao-body">
-                                    <p id="emptyFinalizados" class="no-messages secao-empty" style="display:none;">📭 Nenhum chamado finalizado</p>
+                                    <p id="emptyFinalizados" class="no-messages secao-empty" style="display:none;">Nenhum chamado finalizado</p>
                                     <div id="listaFinalizados" class="wa-conv-list"></div>
                                     <div id="paginacaoFinalizados" class="paginacao-secao" style="display:none;align-items:center;justify-content:space-between;">
                                         <span id="paginacaoFinalizadosInfo" style="font-size:12px;color:#64748b;"></span>
@@ -1921,7 +2153,8 @@
                                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             </div>
                             <h3>Central de Chamados</h3>
-                            <p>Selecione um chamado na lista ao lado para abrir a conversa, no estilo WhatsApp.</p>
+                            <p>Selecione um chamado na lista ao lado para abrir a conversa.</p>
+                            <p class="wa-chat-placeholder-dica"><kbd>/</kbd> busca um chamado &nbsp;·&nbsp; <kbd>Esc</kbd> fecha janelas</p>
                         </div>
 
                         <div id="modalChat" class="wa-chat-panel" data-lock-backdrop="true">
@@ -1936,17 +2169,19 @@
                                         <div class="chat-header-sub">
                                             <span id="chatSolicitanteTelefone">Sem telefone</span>
                                             <span class="chat-header-dot">·</span>
-                                            <span id="chatProtocolo"></span>
+                                            <span id="chatProtocolo" title="Clique para copiar o protocolo" onclick="copiarProtocolo()"></span>
+                                            <span id="chatStatusChip"></span>
                                         </div>
                                     </div>
-                                    <span class="chat-modal-close" onclick="fecharChat()" title="Fechar">
+                                    <div class="chat-header-acoes" id="chatHeaderAcoes"></div>
+                                    <span class="chat-modal-close" onclick="fecharChat()" title="Fechar conversa" role="button" aria-label="Fechar conversa">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                     </span>
                                     <button type="button" id="btnEncerrarNoChat" class="chat-encerrar-btn" onclick="encerrarPeloChat()" title="Encerrar chamado">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                         <span>Encerrar</span>
                                     </button>
-                                    <button type="button" class="chat-toggle-info-btn" onclick="toggleChatDetalhes()" title="Ver detalhes do chamado">
+                                    <button type="button" class="chat-toggle-info-btn" onclick="toggleChatDetalhes()" title="Mostrar ou ocultar os detalhes do chamado" aria-label="Detalhes do chamado">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                                     </button>
                                 </div>
@@ -1954,40 +2189,40 @@
                                 <div class="chat-split-layout">
                                     <aside class="chat-sidebar-info">
                                         <div class="chat-sidebar-section">
-                                            <h4 class="chat-sidebar-title">📋 Informações do Chamado</h4>
+                                            <h4 class="chat-sidebar-title">Informações do chamado</h4>
                                             <div class="chat-sidebar-fields">
                                                 <div class="csf-item">
-                                                    <span class="csf-label">📂 Categoria</span>
+                                                    <span class="csf-label">Categoria</span>
                                                     <span class="csf-value" id="cdCategoria">—</span>
                                                 </div>
                                                 <div class="csf-item">
-                                                    <span class="csf-label">🏢 Setor</span>
+                                                    <span class="csf-label">Setor</span>
                                                     <span class="csf-value" id="cdSetor">—</span>
                                                 </div>
                                                 <div class="csf-item">
-                                                    <span class="csf-label">💻 IP</span>
+                                                    <span class="csf-label">IP</span>
                                                     <span class="csf-value" id="cdIP">—</span>
                                                 </div>
                                                 <div class="csf-item" id="cdImpressoraRow" style="display:none;">
-                                                    <span class="csf-label">🖨️ Cód. Impressora</span>
+                                                    <span class="csf-label">Cód. impressora</span>
                                                     <span class="csf-value" id="cdImpressora">—</span>
                                                 </div>
                                                 <div class="csf-item">
-                                                    <span class="csf-label">📱 Telefone</span>
+                                                    <span class="csf-label">Telefone</span>
                                                     <span class="csf-value" id="cdTelefone">—</span>
                                                 </div>
                                                 <div class="csf-item" id="cdEmailRow" style="display:none;">
-                                                    <span class="csf-label">📧 E-mail</span>
+                                                    <span class="csf-label">E-mail</span>
                                                     <span class="csf-value" id="cdEmail">—</span>
                                                 </div>
                                                 <div class="csf-item" id="cdCpfRow" style="display:none;">
-                                                    <span class="csf-label">🆔 CPF</span>
+                                                    <span class="csf-label">CPF</span>
                                                     <span class="csf-value" id="cdCpf">—</span>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="chat-sidebar-section">
-                                            <h4 class="chat-sidebar-title">📝 Descrição</h4>
+                                            <h4 class="chat-sidebar-title">Descrição</h4>
                                             <div class="csf-descricao" id="cdDescricao">—</div>
                                         </div>
                                     </aside>
@@ -2061,7 +2296,7 @@
     <div id="modalEncaminhar" class="modal">
         <div class="modal-content" style="max-width: 480px;">
             <div class="modal-header">
-                <h2>📤 Encaminhar Chamado</h2>
+                <h2>Encaminhar chamado</h2>
                 <span class="modal-close" onclick="fecharModalEncaminhar()">&times;</span>
             </div>
             <form id="formEncaminhar" onsubmit="encaminharChamado(event)" style="padding: 20px;">
@@ -2105,15 +2340,14 @@
 
                 <div class="form-group">
                     <label for="validarFila">Fila de destino <span style="color:#dc2626;">*</span></label>
-                    <select id="validarFila" required style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px;">
+                    <select id="validarFila" required>
                         <option value="">Carregando filas...</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label for="validarObs">Orientação para a equipe (opcional)</label>
-                    <textarea id="validarObs" rows="3" placeholder="Ex: solicitação autorizada pela chefia, prioridade normal."
-                              style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px;"></textarea>
+                    <textarea id="validarObs" rows="3" placeholder="Ex: solicitação autorizada pela chefia, prioridade normal."></textarea>
                 </div>
 
                 <div class="modal-actions">
@@ -2139,8 +2373,7 @@
                 <div class="form-group">
                     <label for="devolverMotivo">Motivo da devolução <span style="color:#dc2626;">*</span></label>
                     <textarea id="devolverMotivo" rows="4" required minlength="10"
-                              placeholder="Ex: falta a autorização da chefia imediata para esta solicitação."
-                              style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px;"></textarea>
+                              placeholder="Ex: falta a autorização da chefia imediata para esta solicitação."></textarea>
                 </div>
 
                 <div class="modal-actions">
@@ -2158,10 +2391,12 @@
                 <h2>Histórico do chamado</h2>
                 <span class="modal-close" onclick="fecharModalHistorico()">&times;</span>
             </div>
-            <p>Protocolo: <strong id="historicoProtocolo"></strong></p>
-            <div id="historicoLista" class="hist-lista"></div>
-            <div class="modal-actions">
-                <button type="button" onclick="fecharModalHistorico()" class="btn btn-secondary">Fechar</button>
+            <div class="modal-body">
+                <p>Protocolo: <strong id="historicoProtocolo"></strong></p>
+                <div id="historicoLista" class="hist-lista"></div>
+                <div class="modal-actions">
+                    <button type="button" onclick="fecharModalHistorico()" class="btn btn-secondary">Fechar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2170,7 +2405,7 @@
     <div id="modalEncerrar" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Encerrar Chamado</h2>
+                <h2>Encerrar chamado</h2>
                 <span class="modal-close" onclick="fecharModalEncerrar()">&times;</span>
             </div>
             <form id="formEncerrar" onsubmit="encerrarChamado(event)">
@@ -2179,12 +2414,12 @@
                 
                 <div class="form-group">
                     <label for="observacoes">Observações (opcional)</label>
-                    <textarea id="observacoes" name="observacoes" rows="4" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
+                    <textarea id="observacoes" name="observacoes" rows="4"></textarea>
                 </div>
 
                 <div class="modal-actions">
                     <button type="button" onclick="fecharModalEncerrar()" class="btn btn-secondary">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Encerrar Chamado</button>
+                    <button type="submit" class="btn btn-primary">Encerrar chamado</button>
                 </div>
             </form>
         </div>
@@ -2194,7 +2429,7 @@
     <div id="modalMeusAtendimentos" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
-                <h2>📋 Meus Atendimentos</h2>
+                <h2>Meus atendimentos</h2>
                 <span class="modal-close" onclick="fecharModalMeusAtendimentos()">&times;</span>
             </div>
             <div style="padding: 24px;">
@@ -2209,7 +2444,7 @@
     <div id="modalReabrir" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>🔄 Reabrir Chamado</h2>
+                <h2>Reabrir chamado</h2>
                 <span class="modal-close" onclick="fecharModalReabrir()">&times;</span>
             </div>
             <form id="formReabrir" onsubmit="reabrirChamado(event)">
@@ -2218,13 +2453,13 @@
                 
                 <div class="form-group">
                     <label for="motivoReabrir">Motivo da reabertura *</label>
-                    <textarea id="motivoReabrir" name="motivo" rows="3" required minlength="3" placeholder="Ex: Problema voltou a ocorrer, solução aplicada não funcionou..." style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px;"></textarea>
+                    <textarea id="motivoReabrir" name="motivo" rows="3" required minlength="3" placeholder="Ex: Problema voltou a ocorrer, solução aplicada não funcionou..."></textarea>
                     <small style="color: #64748b;">Descreva o motivo para reabrir este chamado.</small>
                 </div>
 
                 <div class="modal-actions">
                     <button type="button" onclick="fecharModalReabrir()" class="btn btn-secondary">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Reabrir Chamado</button>
+                    <button type="submit" class="btn btn-primary">Reabrir chamado</button>
                 </div>
             </form>
         </div>
@@ -2234,7 +2469,7 @@
     <div id="modalTransferir" class="modal">
         <div class="modal-content" style="max-width: 520px;">
             <div class="modal-header">
-                <h2>🔄 Transferir Chamado</h2>
+                <h2>Transferir chamado</h2>
                 <span class="modal-close" onclick="fecharModalTransferir()">&times;</span>
             </div>
             <form id="formTransferir" onsubmit="transferirChamado(event)" style="padding: 20px;">
@@ -2251,7 +2486,7 @@
 
                 <div class="form-group" style="margin-top:14px;">
                     <label for="obsTransferencia">Observação (obrigatória) *</label>
-                    <textarea id="obsTransferencia" name="obsTransferencia" rows="3" required minlength="5" placeholder="O que já foi feito e por que está transferindo..." style="width: 100%; padding: 10px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13.5px; resize: vertical;"></textarea>
+                    <textarea id="obsTransferencia" name="obsTransferencia" rows="3" required minlength="5" placeholder="O que já foi feito e por que está transferindo..."></textarea>
                     <small style="color: #64748b; font-size: 11px;">Mínimo 5 caracteres.</small>
                 </div>
 
@@ -2278,18 +2513,57 @@
         let buscaAtiva = '';
         let buscaTimer = null;
 
+        // Avisos empilham (antes um cobria o outro) e erros ficam mais tempo na tela.
         function mostrarToast(mensagem, tipo = 'success') {
+            let pilha = document.getElementById('toastPilha');
+            if (!pilha) {
+                pilha = document.createElement('div');
+                pilha.id = 'toastPilha';
+                pilha.className = 'toast-pilha';
+                pilha.setAttribute('role', 'status');
+                pilha.setAttribute('aria-live', 'polite');
+                document.body.appendChild(pilha);
+            }
+            const erro = tipo !== 'success';
             const toast = document.createElement('div');
-            toast.textContent = mensagem;
-            toast.style.cssText = `
-                position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-                padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500;
-                color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                background: ${tipo === 'success' ? '#10b981' : '#ef4444'};
-                transition: opacity 0.3s ease;
-            `;
-            document.body.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3500);
+            toast.className = `toast-item ${erro ? 'toast-erro' : 'toast-ok'}`;
+            toast.textContent = String(mensagem || '').replace(/^[✓✗]\s*/, '');
+            toast.onclick = () => toast.remove();
+            pilha.appendChild(toast);
+            setTimeout(() => { toast.classList.add('saindo'); setTimeout(() => toast.remove(), 250); }, erro ? 6000 : 3500);
+        }
+
+        // "14:32" hoje, "Ontem", "seg." na última semana, "08/11" antes disso.
+        function formatarQuando(data) {
+            const d = new Date(data);
+            if (isNaN(d)) return { curto: '', completo: '' };
+            const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const completo = `${d.toLocaleDateString('pt-BR')} às ${hora}`;
+            const meiaNoite = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+            const dias = Math.round((meiaNoite(new Date()) - meiaNoite(d)) / 86400000);
+            let curto;
+            if (dias <= 0) curto = hora;
+            else if (dias === 1) curto = 'Ontem';
+            else if (dias < 7) curto = d.toLocaleDateString('pt-BR', { weekday: 'short' });
+            else curto = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            return { curto, completo, dias };
+        }
+
+        function rotuloDia(d) {
+            const meiaNoite = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+            const dias = Math.round((meiaNoite(new Date()) - meiaNoite(d)) / 86400000);
+            if (dias === 0) return 'Hoje';
+            if (dias === 1) return 'Ontem';
+            return d.toLocaleDateString('pt-BR');
+        }
+
+        // Troca o HTML só quando mudou: a lista atualiza a cada 5s e, sem isso,
+        // menus abertos fechavam e áudios/vídeos do chat recomeçavam sozinhos.
+        function definirHtmlSeMudou(el, html) {
+            if (!el || el.__html === html) return false;
+            el.__html = html;
+            el.innerHTML = html;
+            return true;
         }
 
         function escapeHtml(value) {
@@ -2333,16 +2607,16 @@
             if (!secao) return;
             secao.classList.toggle('collapsed');
             const hint = secao.querySelector('.secao-expand-hint');
-            if (hint) hint.textContent = secao.classList.contains('collapsed') ? 'clique para expandir' : '';
+            if (hint) hint.textContent = secao.classList.contains('collapsed') ? 'mostrar' : '';
         }
 
         function fecharMenusCa() {
             document.querySelectorAll('.ca-menu.open').forEach(m => m.classList.remove('open'));
         }
 
-        function toggleCaMenu(event, chamadoId) {
+        function toggleCaMenu(event, menuId) {
             event.stopPropagation();
-            const menu = document.getElementById(`ca-menu-${chamadoId}`);
+            const menu = document.getElementById(menuId);
             if (!menu) return;
             const aberto = menu.classList.contains('open');
             fecharMenusCa();
@@ -2440,82 +2714,146 @@
             atualizarOverviewChamados();
         }
 
-        function montarAcoesChamado(chamado) {
-            const p   = escapeHtml(chamado.protocolo);
-            const finalizado = chamado.status === 'finalizado';
-            const emAtendimento = chamado.status === 'em_atendimento';
+        const IC = {
+            atender:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+            chat:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+            info:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+            historico:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            forward:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>`,
+            transferir:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+            encerrar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+            reabrir:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
+            excluir:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
+            mais:     `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>`
+        };
 
-            const icAtender   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-            const icChat      = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-            const icInfo      = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
-            const icForward   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>`;
-            const icEncerrar  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-            const icReabrir   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
-            const icExcluir   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+        // Itens do menu "mais ações" — os mesmos na lista e no cabeçalho do chat.
+        function montarItensMenu(chamado) {
+            if (isVisualizador) return '';
+            const id = chamado.id;
+            const p = escapeHtml(chamado.protocolo);
+            const item = (onclick, icone, rotulo, extra = '') =>
+                `<button type="button" class="ca-menu-item ${extra}" onclick="fecharMenusCa();${onclick}">${icone} ${rotulo}</button>`;
+            let itens = '';
 
-            if (isVisualizador) {
-                return `<div class="chamado-actions"><button class="ca-btn ca-info btn-detalhes" title="Ver detalhes" data-id="${chamado.id}">${icInfo}</button></div>`;
-            }
-
-            let html = '<div class="chamado-actions">';
-            let menuItems = '';
-
-            // Chamado em triagem: a unica acao possivel e validar ou devolver.
-            // Nada de atender/encaminhar antes da equipe central liberar.
             if (chamado.status === 'triagem') {
-                if (podeTriar) {
-                    html += `<button onclick="abrirModalValidar(${chamado.id},'${p}')" class="ca-btn ca-atender ca-btn-primary" title="Validar e distribuir">${icAtender}<span>Validar</span></button>`;
-                    html += `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" data-id="${chamado.id}">${icInfo}</button>`;
-                    menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalDevolver(${chamado.id},'${p}')">${icEncerrar} Devolver ao solicitante</button>`;
-                } else {
-                    html += `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" data-id="${chamado.id}">${icInfo}</button>`;
-                    html += `<span class="ca-aguardando" title="Aguardando validacao da equipe central">aguardando triagem</span>`;
-                }
-                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirHistoricoChamado(${chamado.id},'${p}')">${icInfo} Historico</button>`;
-                if (menuItems) {
-                    html += `<div class="ca-menu-wrap">
-                        <button type="button" class="ca-btn ca-menu-trigger" title="Mais acoes" onclick="toggleCaMenu(event, ${chamado.id})">⋮</button>
-                        <div class="ca-menu" id="ca-menu-${chamado.id}">${menuItems}</div>
-                    </div>`;
-                }
-                return html + '</div>';
+                // Em triagem só dá para validar ou devolver: nada de encaminhar antes da equipe central liberar.
+                if (podeTriar) itens += item(`abrirModalDevolver(${id},'${p}')`, IC.encerrar, 'Devolver ao solicitante');
+                itens += item(`abrirHistoricoChamado(${id},'${p}')`, IC.historico, 'Histórico');
+                return itens;
             }
 
-            if (!finalizado) {
-                if (!emAtendimento) {
-                    html += `<button onclick="atenderChamado(${chamado.id},'${p}')" class="ca-btn ca-atender ca-btn-primary" title="Atender">${icAtender}<span>Atender</span></button>`;
-                }
-                html += `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" data-id="${chamado.id}">${icInfo}</button>`;
-                html += `<button onclick="abrirModalEncerrar(${chamado.id},'${p}')" class="ca-btn ca-close" title="Encerrar">${icEncerrar}</button>`;
-
-                const lblEnc = emAtendimento ? 'Reencaminhar' : 'Encaminhar';
-                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalEncaminhar(${chamado.id},'${p}',${chamado.eh_hgp ? 1 : 0})">${icForward} ${lblEnc}</button>`;
-                if (emAtendimento) {
-                    menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalTransferir(${chamado.id},'${p}')">${icForward} Transferir</button>`;
-                }
+            if (chamado.status !== 'finalizado') {
+                const emAtendimento = chamado.status === 'em_atendimento';
+                itens += item(`abrirModalEncerrar(${id},'${p}')`, IC.encerrar, 'Encerrar', 'so-mobile');
+                itens += item(`abrirModalEncaminhar(${id},'${p}',${chamado.eh_hgp ? 1 : 0})`, IC.forward, emAtendimento ? 'Reencaminhar' : 'Encaminhar');
+                if (emAtendimento) itens += item(`abrirModalTransferir(${id},'${p}')`, IC.transferir, 'Transferir');
             } else {
-                html += `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" data-id="${chamado.id}">${icInfo}</button>`;
-                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirModalReabrir(${chamado.id},'${p}')">${icReabrir} Reabrir</button>`;
+                itens += item(`abrirModalReabrir(${id},'${p}')`, IC.reabrir, 'Reabrir');
             }
             if (chamado.nome_whatsapp || chamado.telefone_whatsapp) {
-                menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();mostrarDadosWhatsApp('${p}','${escapeHtml(chamado.solicitante_nome)}','${escapeHtml(chamado.telefone_contato||'')}','${escapeHtml(chamado.nome_whatsapp||'')}','${escapeHtml(chamado.telefone_whatsapp||'')}')">${icChat} Dados WhatsApp</button>`;
+                itens += item(`mostrarDadosWhatsAppPorId(${id})`, IC.chat, 'Dados WhatsApp');
             }
+            itens += item(`abrirHistoricoChamado(${id},'${p}')`, IC.historico, 'Histórico');
+            if (isAdminOnly) itens += item(`excluirChamado(${id},'${p}')`, IC.excluir, 'Excluir', 'danger');
+            return itens;
+        }
 
-            menuItems += `<button type="button" class="ca-menu-item" onclick="fecharMenusCa();abrirHistoricoChamado(${chamado.id},'${p}')">${icInfo} Histórico</button>`;
+        function montarMenuMais(chamado, contexto) {
+            const itens = montarItensMenu(chamado);
+            if (!itens) return '';
+            const menuId = `ca-menu-${contexto}-${chamado.id}`;
+            return `<div class="ca-menu-wrap">
+                        <button type="button" class="ca-btn ca-menu-trigger" title="Mais ações" aria-label="Mais ações" aria-haspopup="true" onclick="toggleCaMenu(event, '${menuId}')">${IC.mais}</button>
+                        <div class="ca-menu" id="${menuId}">${itens}</div>
+                    </div>`;
+        }
 
-            if (isAdminOnly) {
-                menuItems += `<button type="button" class="ca-menu-item danger" onclick="fecharMenusCa();excluirChamado(${chamado.id},'${p}')">${icExcluir} Excluir</button>`;
+        function montarAcoesChamado(chamado) {
+            const p = escapeHtml(chamado.protocolo);
+            const id = chamado.id;
+            const btnInfo = `<button class="ca-btn ca-info btn-detalhes" title="Detalhes" aria-label="Detalhes" data-id="${id}">${IC.info}</button>`;
+
+            if (isVisualizador) return `<div class="chamado-actions">${btnInfo}</div>`;
+
+            let html = '<div class="chamado-actions">';
+            if (chamado.status === 'triagem') {
+                if (podeTriar) {
+                    html += `<button onclick="abrirModalValidar(${id},'${p}')" class="ca-btn ca-atender ca-btn-primary" title="Validar e distribuir">${IC.atender}<span>Validar</span></button>`;
+                    html += btnInfo;
+                } else {
+                    html += btnInfo;
+                    html += `<span class="ca-aguardando" title="Aguardando validação da equipe central">aguardando triagem</span>`;
+                }
+            } else if (chamado.status !== 'finalizado') {
+                if (chamado.status !== 'em_atendimento') {
+                    html += `<button onclick="atenderChamado(${id},'${p}')" class="ca-btn ca-atender ca-btn-primary" title="Assumir este chamado">${IC.atender}<span>Atender</span></button>`;
+                }
+                html += btnInfo;
+                html += `<button onclick="abrirModalEncerrar(${id},'${p}')" class="ca-btn ca-close" title="Encerrar" aria-label="Encerrar">${IC.encerrar}</button>`;
+            } else {
+                html += btnInfo;
             }
+            return html + montarMenuMais(chamado, 'lista') + '</div>';
+        }
 
-            if (menuItems) {
-                html += `<div class="ca-menu-wrap">
-                    <button type="button" class="ca-btn ca-menu-trigger" title="Mais ações" onclick="toggleCaMenu(event, ${chamado.id})">⋮</button>
-                    <div class="ca-menu" id="ca-menu-${chamado.id}">${menuItems}</div>
-                </div>`;
+        // Cabeçalho do chat: status + as ações do chamado aberto, sem precisar voltar à lista.
+        function atualizarCabecalhoChat() {
+            const acoesEl = document.getElementById('chatHeaderAcoes');
+            const chipEl = document.getElementById('chatStatusChip');
+            if (!acoesEl || !chipEl) return;
+            const chamado = chamadoChatAbertoId == null
+                ? null
+                : chamadosState.find((c) => Number(c.id) === Number(chamadoChatAbertoId));
+            if (!chamado) return; // saiu do recorte (ex.: busca): mantém o que já estava
+
+            const p = escapeHtml(chamado.protocolo);
+            const atendente = chamado.atendente_nome
+                ? `<span class="chat-header-atend" title="Atendente: ${escapeHtml(chamado.atendente_nome)}">${escapeHtml(String(chamado.atendente_nome).trim().split(/\s+/)[0])}</span>`
+                : '';
+            definirHtmlSeMudou(chipEl, montarBadgeStatus(chamado.status) + atendente);
+
+            let html = '';
+            if (!isVisualizador) {
+                if (chamado.status === 'triagem' && podeTriar) {
+                    html += `<button type="button" class="chat-acao-btn primaria" onclick="abrirModalValidar(${chamado.id},'${p}')">${IC.atender}<span>Validar</span></button>`;
+                } else if (chamado.status === 'pendente' || chamado.status === 'aberto') {
+                    html += `<button type="button" class="chat-acao-btn primaria" onclick="atenderChamado(${chamado.id},'${p}')" title="Assumir este chamado">${IC.atender}<span>Atender</span></button>`;
+                }
             }
+            html += montarMenuMais(chamado, 'chat');
+            // Não redesenha com o menu aberto (a lista atualiza sozinha a cada 5s).
+            if (!acoesEl.querySelector('.ca-menu.open')) definirHtmlSeMudou(acoesEl, html);
 
-            html += '</div>';
-            return html;
+            const finalizado = chamado.status === 'finalizado';
+            const btnEncerrar = document.getElementById('btnEncerrarNoChat');
+            if (btnEncerrar) btnEncerrar.style.display = (finalizado || chamado.status === 'triagem' || isVisualizador) ? 'none' : 'flex';
+
+            const formChat = document.getElementById('formChat');
+            if (formChat) {
+                let aviso = document.getElementById('chatFinalizadoAviso');
+                if (finalizado && !aviso) {
+                    aviso = document.createElement('div');
+                    aviso.id = 'chatFinalizadoAviso';
+                    aviso.className = 'chat-finalizado-aviso';
+                    aviso.textContent = 'Chamado finalizado — somente leitura. Para voltar a conversar, use Reabrir no menu de ações.';
+                    formChat.parentNode.insertBefore(aviso, formChat);
+                }
+                formChat.style.display = finalizado ? 'none' : '';
+                if (aviso) aviso.style.display = finalizado ? 'block' : 'none';
+            }
+        }
+
+        async function copiarProtocolo() {
+            const el = document.getElementById('chatProtocolo');
+            const texto = el ? el.textContent.trim() : '';
+            if (!texto) return;
+            try {
+                await navigator.clipboard.writeText(texto);
+                mostrarToast(`Protocolo ${texto} copiado`);
+            } catch (e) {
+                mostrarToast('Não foi possível copiar o protocolo', 'error');
+            }
         }
 
         const STATUS_ATIVOS = ['triagem', 'pendente', 'aberto', 'em_atendimento', 'devolvido'];
@@ -2530,11 +2868,15 @@
         }
 
         function aplicarFiltro(status) {
+            if (status !== 'todos' && status === filtroAtivo) status = 'todos';
             filtroAtivo = status;
             paginaAtivos = 1;
             paginaFinalizados = 1;
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t.dataset.filter === status));
-            document.querySelectorAll('.stat-chip[data-filter]').forEach(c => c.classList.toggle('stat-card-active', c.dataset.filter === status));
+            document.querySelectorAll('.stat-chip[data-filter]').forEach(c => {
+                const ativo = c.dataset.filter === status;
+                c.classList.toggle('stat-card-active', ativo);
+                c.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+            });
             if (status === 'finalizado') {
                 document.getElementById('secaoFinalizados')?.classList.remove('collapsed');
             }
@@ -2564,34 +2906,36 @@
         let paginaFinalizados = 1;
         const itensPorPagina = 25;
 
-        const whatsAppBtn = (c) => (c.nome_whatsapp || c.telefone_whatsapp)
-            ? `<button onclick="event.stopPropagation();mostrarDadosWhatsApp('${escapeHtml(c.protocolo)}','${escapeHtml(c.solicitante_nome)}','${escapeHtml(c.telefone_contato||'')}','${escapeHtml(c.nome_whatsapp||'')}','${escapeHtml(c.telefone_whatsapp||'')}')" class="ca-btn ca-whatsapp" title="Dados WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></button>`
-            : '';
-
         let chamadoChatAbertoId = null;
+        let naoLidasPorChamado = {};
 
         function renderLinhaChamado(chamado) {
-            const dh = formatarDataHora(chamado.criado_em);
+            const quando = formatarQuando(chamado.criado_em);
             const isNew = chamado._isNew ? 'chamado-row-new' : '';
             const isActive = Number(chamadoChatAbertoId) === Number(chamado.id) ? 'active' : '';
             const nome = String(chamado.solicitante_nome || 'Solicitante').trim();
             const inicial = (nome.charAt(0) || '?').toUpperCase();
             const preview = [chamado.setor, chamado.categoria].filter(Boolean).join(' · ') || 'Sem setor';
             const p = escapeHtml(chamado.protocolo);
+            const naoLidas = Number(naoLidasPorChamado[chamado.id] || 0);
+            const badge = naoLidas > 0
+                ? `<span class="chat-badge" title="${naoLidas} mensagem(ns) não lida(s)">${naoLidas > 99 ? '99+' : naoLidas}</span>`
+                : '';
             const atendente = chamado.atendente_nome
-                ? `<span class="wa-conv-atend">👤 ${escapeHtml(String(chamado.atendente_nome).trim().split(/\s+/)[0])}</span>`
+                ? `<span class="wa-conv-atend" title="Atendente: ${escapeHtml(chamado.atendente_nome)}">${escapeHtml(String(chamado.atendente_nome).trim().split(/\s+/)[0])}</span>`
                 : '';
             return `
-                <div class="wa-conv ${isNew} ${isActive}" data-id="${chamado.id}" data-status="${chamado.status}"
-                     onclick="abrirChat(${chamado.id},'${p}')">
-                    <div class="wa-conv-avatar">${escapeHtml(inicial)}<span id="badge-${chamado.id}" class="chat-badge" style="display:none;"></span></div>
+                <div class="wa-conv ${isNew} ${isActive} ${naoLidas > 0 ? 'tem-nao-lidas' : ''}" data-id="${chamado.id}" data-status="${chamado.status}"
+                     role="button" tabindex="0" aria-label="Abrir chamado ${p} de ${escapeHtml(nome)}"
+                     onclick="abrirChat(${chamado.id},'${p}')" onkeydown="teclaLinhaChamado(event, ${chamado.id}, '${p}')">
+                    <div class="wa-conv-avatar">${escapeHtml(inicial)}${badge}</div>
                     <div class="wa-conv-body">
                         <div class="wa-conv-top">
                             <span class="wa-conv-name">${escapeHtml(nome)}</span>
-                            <span class="wa-conv-time">${dh.hora}</span>
+                            <span class="wa-conv-time" title="Aberto em ${quando.completo}">${quando.curto}</span>
                         </div>
                         <div class="wa-conv-mid">
-                            <span class="wa-conv-preview">${escapeHtml(preview)}</span>
+                            <span class="wa-conv-preview" title="${escapeHtml(preview)}">${escapeHtml(preview)}</span>
                             ${montarBadgeStatus(chamado.status)}
                         </div>
                         <div class="wa-conv-bottom">
@@ -2599,8 +2943,23 @@
                             ${atendente}
                         </div>
                     </div>
-                    <div class="wa-conv-actions" onclick="event.stopPropagation()">${montarAcoesChamado(chamado)}</div>
+                    <div class="wa-conv-actions" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">${montarAcoesChamado(chamado)}</div>
                 </div>`;
+        }
+
+        // Enter/espaço abrem o chamado; setas andam pela lista.
+        function teclaLinhaChamado(event, id, protocolo) {
+            if (event.target !== event.currentTarget) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                abrirChat(id, protocolo);
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const linhas = Array.from(document.querySelectorAll('.wa-conv'));
+                const i = linhas.indexOf(event.currentTarget);
+                const alvo = linhas[i + (event.key === 'ArrowDown' ? 1 : -1)];
+                if (alvo) alvo.focus();
+            }
         }
 
         function renderPaginacaoSecao(infoId, btnsId, containerId, paginaAtualSecao, totalPaginas, total, fnIr) {
@@ -2681,7 +3040,30 @@
 
             const totalVisivel = (mostrarAtivos ? ativos.length : 0) + (mostrarFinalizados ? finalizados.length : 0);
             if (countEl) countEl.textContent = totalVisivel > 0 ? `${totalVisivel} chamado${totalVisivel !== 1 ? 's' : ''}` : '';
-            emptyState.style.display = totalVisivel === 0 ? 'block' : 'none';
+
+            // Sem resultado: um único aviso, dizendo o porquê e como sair dele.
+            const vazio = totalVisivel === 0;
+            emptyState.style.display = vazio ? 'flex' : 'none';
+            if (vazio) {
+                secaoAtivos.style.display = 'none';
+                secaoFinalizados.style.display = 'none';
+                const filtrando = filtroAtivo !== 'todos' || !!buscaAtiva;
+                document.getElementById('chamadosEmptyTitulo').textContent = buscaAtiva
+                    ? `Nada encontrado para "${buscaAtiva}"`
+                    : (filtrando ? 'Nenhum chamado com este filtro' : 'Nenhum chamado por aqui');
+                document.getElementById('chamadosEmptyLimpar').style.display = filtrando ? '' : 'none';
+            }
+
+            atualizarCabecalhoChat();
+        }
+
+        function limparFiltros() {
+            const busca = document.getElementById('chamadosBusca');
+            if (busca) busca.value = '';
+            const tinhaBusca = !!buscaAtiva;
+            buscaAtiva = '';
+            aplicarFiltro('todos');
+            if (tinhaBusca) atualizarOverviewChamados();
         }
 
         function renderSecaoChamados(opts) {
@@ -2692,7 +3074,7 @@
 
             if (!opts.visivel) {
                 secaoEl.style.display = 'none';
-                if (listaEl) listaEl.innerHTML = '';
+                definirHtmlSeMudou(listaEl, '');
                 return 1;
             }
             secaoEl.style.display = 'block';
@@ -2701,7 +3083,7 @@
             if (countEl) countEl.textContent = lista.length;
 
             if (lista.length === 0) {
-                if (listaEl) listaEl.innerHTML = '';
+                definirHtmlSeMudou(listaEl, '');
                 if (emptyEl) emptyEl.style.display = 'block';
                 document.getElementById(opts.pagContainerId).style.display = 'none';
                 return 1;
@@ -2716,7 +3098,13 @@
             const inicio = (pagina - 1) * itensPorPagina;
             const paginados = lista.slice(inicio, inicio + itensPorPagina);
 
-            if (listaEl) listaEl.innerHTML = paginados.map(renderLinhaChamado).join('');
+            // Com um menu "mais ações" aberto na lista, espera o próximo ciclo para redesenhar.
+            if (listaEl && !listaEl.querySelector('.ca-menu.open')) {
+                const foco = document.activeElement?.closest?.('.wa-conv')?.dataset?.id;
+                if (definirHtmlSeMudou(listaEl, paginados.map(renderLinhaChamado).join('')) && foco) {
+                    listaEl.querySelector(`.wa-conv[data-id="${foco}"]`)?.focus({ preventScroll: true });
+                }
+            }
 
             renderPaginacaoSecao(opts.pagInfoId, opts.pagBtnsId, opts.pagContainerId, pagina, totalPaginas, lista.length, opts.fnIr);
             return pagina;
@@ -2779,9 +3167,21 @@
                 chamadosIdsConhecidos = new Set(novosChamados.map(c => c.id));
 
                 chamadosState = novosChamados;
+
+                // O servidor já manda as não lidas no overview. Se for uma versão
+                // antiga do servidor (sem o campo), cai no método de uma consulta por chamado.
+                const servidorMandaNaoLidas = novosChamados.some(c => typeof c.nao_lidas !== 'undefined');
+                if (servidorMandaNaoLidas) {
+                    const mapa = {};
+                    novosChamados.forEach(c => {
+                        if (Number(c.nao_lidas) > 0 && Number(c.id) !== Number(chamadoChatAbertoId)) mapa[c.id] = Number(c.nao_lidas);
+                    });
+                    naoLidasPorChamado = mapa;
+                }
+
                 renderStats(result.contagem || {});
                 renderChamadosTable(chamadosState);
-                await verificarMensagensNaoLidas();
+                if (!servidorMandaNaoLidas && novosChamados.length > 0) await verificarMensagensNaoLidas();
             } catch (error) {
                 console.error('Erro ao atualizar overview de chamados:', error);
             }
@@ -2827,9 +3227,7 @@
             // Controles de triagem aparecem so para quem tem unidade com fila central
             if (temTriagem) {
                 const chip = document.getElementById('chipTriagem');
-                const tab = document.getElementById('tabTriagem');
                 if (chip) chip.style.display = '';
-                if (tab) tab.style.display = '';
             }
             renderChamadosTable(chamadosState);
             carregarGestores();
@@ -3004,7 +3402,7 @@
             if (!confirm(`Deseja iniciar o atendimento do chamado ${protocolo}?`)) return;
 
             // Abrir o chat IMEDIATAMENTE (sem esperar o request)
-            abrirChat(id, protocolo);
+            if (Number(chamadoChatAbertoId) !== Number(id)) abrirChat(id, protocolo);
 
             // Enviar request de atender em background
             try {
@@ -3356,6 +3754,7 @@
                     fecharModalEncerrar();
                     mostrarToast('✓ ' + result.message, 'success');
                     await atualizarOverviewChamados();
+                    carregarBannerMeusChamados();
                 } else {
                     mostrarToast('✗ ' + result.message, 'error');
                 }
@@ -3386,16 +3785,16 @@
                             '</tr></thead><tbody>';
 
                         result.chamados.forEach(chamado => {
-                            const statusBadge = chamado.status === 'em_atendimento' 
-                                ? '<span class="badge badge-atendimento">⏳ Em Atendimento</span>'
-                                : '<span class="badge success">✅ Finalizado</span>';
-                            
-                            html += `<tr>
-                                <td><strong>${chamado.protocolo}</strong></td>
-                                <td>${chamado.solicitante_nome}</td>
-                                <td>${statusBadge}</td>
-                                <td>${chamado.iniciado_em ? new Date(chamado.iniciado_em).toLocaleString('pt-BR') : '-'}</td>
-                                <td>${chamado.encerrado_em ? new Date(chamado.encerrado_em).toLocaleString('pt-BR') : '-'}</td>
+                            const naLista = chamadosState.some(c => Number(c.id) === Number(chamado.id));
+                            const abrir = naLista
+                                ? ` class="linha-clicavel" tabindex="0" title="Abrir a conversa" onclick="abrirChamadoDoModal(${Number(chamado.id)})" onkeydown="if(event.key==='Enter')abrirChamadoDoModal(${Number(chamado.id)})"`
+                                : '';
+                            html += `<tr${abrir}>
+                                <td><strong>${escapeHtml(chamado.protocolo)}</strong></td>
+                                <td>${escapeHtml(chamado.solicitante_nome)}</td>
+                                <td>${montarBadgeStatus(chamado.status)}</td>
+                                <td>${chamado.iniciado_em ? new Date(chamado.iniciado_em).toLocaleString('pt-BR') : '—'}</td>
+                                <td>${chamado.encerrado_em ? new Date(chamado.encerrado_em).toLocaleString('pt-BR') : '—'}</td>
                             </tr>`;
                         });
 
@@ -3415,6 +3814,13 @@
 
         function fecharModalMeusAtendimentos() {
             document.getElementById('modalMeusAtendimentos').style.display = 'none';
+        }
+
+        function abrirChamadoDoModal(id) {
+            const chamado = chamadosState.find(c => Number(c.id) === Number(id));
+            if (!chamado) return;
+            fecharModalMeusAtendimentos();
+            abrirChat(chamado.id, chamado.protocolo);
         }
 
         // ── Reabrir chamado ──
@@ -3487,20 +3893,20 @@
     <div id="modalWhatsApp" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
-                <h2>📱 Dados do WhatsApp</h2>
+                <h2>Dados do WhatsApp</h2>
                 <span class="modal-close" onclick="fecharModalWhatsApp()">&times;</span>
             </div>
             <div style="padding: 20px;">
                 <p style="margin-bottom: 15px;"><strong>Protocolo:</strong> <span id="whatsProtocolo"></span></p>
                 
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h3 style="margin: 0 0 10px 0; color: #3b82f6;">📝 Dados Informados pelo Solicitante</h3>
+                    <h3 style="margin: 0 0 10px 0; color: #3b82f6;">Informado pelo solicitante</h3>
                     <p style="margin: 5px 0;"><strong>Nome:</strong> <span id="whatsNomeInformado"></span></p>
                     <p style="margin: 5px 0;"><strong>Telefone:</strong> <span id="whatsTelInformado"></span></p>
                 </div>
                 
                 <div style="background: #f0fdf4; padding: 15px; border-radius: 8px;">
-                    <h3 style="margin: 0 0 10px 0; color: #10b981;">✅ Dados Reais do WhatsApp</h3>
+                    <h3 style="margin: 0 0 10px 0; color: #10b981;">Conta real do WhatsApp</h3>
                     <p style="margin: 5px 0;"><strong>Nome:</strong> <span id="whatsNomeReal"></span></p>
                     <p style="margin: 5px 0;"><strong>Telefone:</strong> <span id="whatsTelReal"></span></p>
                 </div>
@@ -3512,21 +3918,21 @@
     <div id="modalDetalhes" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
-                <h2>📋 Detalhes do Chamado</h2>
+                <h2>Detalhes do chamado</h2>
                 <span class="modal-close" onclick="fecharModalDetalhes()">&times;</span>
             </div>
             <div style="padding: 20px;">
-                <p style="margin-bottom: 10px;"><strong>📌 Protocolo:</strong> <span id="detProtocolo"></span></p>
-                <p style="margin-bottom: 10px;"><strong>📂 Categoria:</strong> <span id="detCategoria"></span></p>
-                <p style="margin-bottom: 10px;"><strong>👤 Solicitante:</strong> <span id="detSolicitante"></span></p>
-                <p style="margin-bottom: 10px;"><strong>🏢 Setor:</strong> <span id="detSetor"></span></p>
-                <p style="margin-bottom: 10px;"><strong>💻 IP:</strong> <span id="detIP"></span></p>
-                <p id="detImpressoraRow" style="margin-bottom: 10px; display:none;"><strong>🖨️ Cód. Impressora:</strong> <span id="detImpressora"></span></p>
-                <p style="margin-bottom: 10px;"><strong>📱 Telefone:</strong> <span id="detTelefone"></span></p>
-                <p id="detEmailRow" style="margin-bottom: 10px; display:none;"><strong>📧 E-mail:</strong> <span id="detEmail"></span></p>
-                <p id="detCpfRow" style="margin-bottom: 10px; display:none;"><strong>🪪 CPF:</strong> <span id="detCpf"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Protocolo:</strong> <span id="detProtocolo"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Categoria:</strong> <span id="detCategoria"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Solicitante:</strong> <span id="detSolicitante"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Setor:</strong> <span id="detSetor"></span></p>
+                <p style="margin-bottom: 10px;"><strong>IP:</strong> <span id="detIP"></span></p>
+                <p id="detImpressoraRow" style="margin-bottom: 10px; display:none;"><strong>Cód. impressora:</strong> <span id="detImpressora"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Telefone:</strong> <span id="detTelefone"></span></p>
+                <p id="detEmailRow" style="margin-bottom: 10px; display:none;"><strong>E-mail:</strong> <span id="detEmail"></span></p>
+                <p id="detCpfRow" style="margin-bottom: 10px; display:none;"><strong>CPF:</strong> <span id="detCpf"></span></p>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                    <h3 style="margin: 0 0 10px 0;">📝 Descrição do Problema:</h3>
+                    <h3 style="margin: 0 0 10px 0;">Descrição do problema</h3>
                     <p id="detDescricao" style="white-space: pre-wrap; margin: 0;"></p>
                 </div>
             </div>
@@ -3597,7 +4003,7 @@
             chamadoChatAbertoId = chamadoId;
 
             // Limpar mensagens anteriores imediatamente para não mostrar conversa de outro chamado
-            document.getElementById('chatMessages').innerHTML = '<p class="chat-empty">Carregando mensagens...</p>';
+            definirHtmlSeMudou(document.getElementById('chatMessages'), '<p class="chat-empty">Carregando mensagens...</p>');
 
             const placeholder = document.getElementById('chatPlaceholder');
             const painel = document.getElementById('modalChat');
@@ -3609,6 +4015,8 @@
             document.querySelectorAll('.wa-conv.active').forEach((el) => el.classList.remove('active'));
             document.querySelector(`.wa-conv[data-id="${chamadoId}"]`)?.classList.add('active');
 
+            const acoesEl = document.getElementById('chatHeaderAcoes');
+            if (acoesEl) { acoesEl.__html = null; acoesEl.innerHTML = ''; }
             document.getElementById('chatProtocolo').textContent = protocolo;
             document.getElementById('chatSolicitanteNome').textContent = nome;
             document.getElementById('chatSolicitanteTelefone').textContent = chamadoAtual?.telefone_contato || chamadoAtual?.telefone_whatsapp || 'Sem telefone';
@@ -3662,37 +4070,20 @@
                 }
             }
 
-            // Se o chamado está finalizado: ocultar barra de composição (chat read-only)
-            const formChat = document.getElementById('formChat');
-            const btnEncerrarChat = document.getElementById('btnEncerrarNoChat');
-            if (formChat) {
-                if (chamadoAtual && chamadoAtual.status === 'finalizado') {
-                    formChat.style.display = 'none';
-                    if (btnEncerrarChat) btnEncerrarChat.style.display = 'none';
-                    // Mostra aviso no lugar
-                    let aviso = document.getElementById('chatFinalizadoAviso');
-                    if (!aviso) {
-                        aviso = document.createElement('div');
-                        aviso.id = 'chatFinalizadoAviso';
-                        aviso.style.cssText = 'background:#f1f5f9;border-top:1px solid #e2e8f0;padding:12px 16px;text-align:center;font-size:12px;color:#64748b;font-weight:500;';
-                        aviso.innerHTML = '🔒 Chamado finalizado — somente leitura';
-                        formChat.parentNode.insertBefore(aviso, formChat);
-                    }
-                    aviso.style.display = 'block';
-                } else {
-                    formChat.style.display = '';
-                    if (btnEncerrarChat) btnEncerrarChat.style.display = 'flex';
-                    const aviso = document.getElementById('chatFinalizadoAviso');
-                    if (aviso) aviso.style.display = 'none';
-                }
-            }
+            atualizarCabecalhoChat();
 
-            const badge = document.getElementById(`badge-${chamadoId}`);
-            if (badge) badge.style.display = 'none';
+            // Abriu a conversa: as mensagens deste chamado contam como lidas.
+            if (naoLidasPorChamado[chamadoId]) {
+                delete naoLidasPorChamado[chamadoId];
+                renderChamadosTable(chamadosState);
+            }
 
             chatIsFirstLoad = true;
             await carregarMensagensChat(chamadoId);
+            if (Number(chamadoChatAbertoId) !== Number(chamadoId)) return; // trocou de chamado enquanto carregava
+            if (chatInterval) clearInterval(chatInterval);
             chatInterval = setInterval(() => carregarMensagensChat(chamadoId), 5000);
+            if (window.matchMedia('(min-width: 901px)').matches) document.getElementById('chatMensagem')?.focus();
         }
 
         function toggleChatDetalhes() {
@@ -3715,8 +4106,7 @@
         function encerrarPeloChat() {
             const chamadoId = document.getElementById('chatChamadoId').value;
             const protocolo = document.getElementById('chatProtocolo').textContent;
-            // Abre o modal de encerrar já com os dados preenchidos
-            fecharChat();
+            // O chat continua aberto atrás do modal: se cancelar, a conversa não se perde.
             abrirModalEncerrar(chamadoId, protocolo);
         }
 
@@ -3770,8 +4160,9 @@
                 const threshold = 80;
                 const wasAtBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
 
+                let mudou;
                 if (result.mensagens.length === 0) {
-                    chatMessages.innerHTML = '<p class="chat-empty">Nenhuma mensagem ainda.</p>';
+                    mudou = definirHtmlSeMudou(chatMessages, '<p class="chat-empty">Nenhuma mensagem ainda. Escreva abaixo para iniciar a conversa.</p>');
                 } else {
                     let html = '';
                     let lastDate = '';
@@ -3781,7 +4172,7 @@
                         const dt = new Date(msg.enviada_em);
                         const dateKey = dt.toLocaleDateString('pt-BR');
                         if (dateKey !== lastDate) {
-                            html += `<div class="chat-date-separator"><span>${dateKey}</span></div>`;
+                            html += `<div class="chat-date-separator"><span title="${dateKey}">${rotuloDia(dt)}</span></div>`;
                             lastDate = dateKey;
                             prevTipo = '';
                             prevNome = '';
@@ -3824,10 +4215,10 @@
                                 </div>
                             </div>`;
                     });
-                    chatMessages.innerHTML = html;
+                    mudou = definirHtmlSeMudou(chatMessages, html);
                 }
 
-                if (chatIsFirstLoad || wasAtBottom) {
+                if (chatIsFirstLoad || (mudou && wasAtBottom)) {
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                     chatIsFirstLoad = false;
                 }
@@ -3940,30 +4331,21 @@
             }
         }
 
-        // Verificar mensagens não lidas ao carregar a página
+        // Método antigo de não lidas (uma consulta por chamado). Só roda se o servidor
+        // ainda não mandar "nao_lidas" no overview; consulta apenas os chamados ativos, em paralelo.
         async function verificarMensagensNaoLidas() {
-            const chamados = document.querySelectorAll('[id^="badge-"]');
-            
-            for (const badge of chamados) {
-                const chamadoId = badge.id.replace('badge-', '');
-                
+            const ativos = chamadosState.filter(c => STATUS_ATIVOS.includes(c.status)).slice(0, 60);
+            const mapa = {};
+            await Promise.all(ativos.map(async (c) => {
                 try {
-                    const response = await fetch(`/api/chamados/${chamadoId}/chat/nao-lidas`);
+                    const response = await fetch(`/api/chamados/${c.id}/chat/nao-lidas`);
                     const result = await response.json();
-                    
-                    if (result.success && result.total > 0) {
-                        badge.textContent = result.total;
-                        badge.style.display = 'flex';
-                    }
-                } catch (error) {
-                    console.error(`Erro ao verificar mensagens do chamado ${chamadoId}:`, error);
-                }
-            }
+                    if (result.success && result.total > 0 && Number(c.id) !== Number(chamadoChatAbertoId)) mapa[c.id] = Number(result.total);
+                } catch (error) { /* tenta de novo no próximo ciclo */ }
+            }));
+            naoLidasPorChamado = mapa;
+            renderChamadosTable(chamadosState);
         }
-
-        // Verificar mensagens não lidas ao carregar e a cada 30 segundos
-        verificarMensagensNaoLidas();
-        setInterval(verificarMensagensNaoLidas, 30000);
 
         // Funções para modal de dados WhatsApp
         function mostrarDadosWhatsApp(protocolo, nomeInformado, telInformado, nomeReal, telReal) {
@@ -3975,24 +4357,14 @@
             document.getElementById('whatsTelReal').textContent = telReal || 'Não disponível';
         }
 
+        function mostrarDadosWhatsAppPorId(id) {
+            const c = chamadosState.find(item => Number(item.id) === Number(id));
+            if (!c) return;
+            mostrarDadosWhatsApp(c.protocolo, c.solicitante_nome, c.telefone_contato, c.nome_whatsapp, c.telefone_whatsapp);
+        }
+
         function fecharModalWhatsApp() {
             document.getElementById('modalWhatsApp').style.display = 'none';
-        }
-
-        // Funções para modal de detalhes
-        function verDetalhes(protocolo, categoria, solicitante, setor, ip, telefone, descricao) {
-            document.getElementById('modalDetalhes').style.display = 'flex';
-            document.getElementById('detProtocolo').textContent = protocolo;
-            document.getElementById('detCategoria').textContent = categoria;
-            document.getElementById('detSolicitante').textContent = solicitante;
-            document.getElementById('detSetor').textContent = setor;
-            document.getElementById('detIP').textContent = ip || 'Não informado';
-            document.getElementById('detTelefone').textContent = telefone || 'Não informado';
-            document.getElementById('detDescricao').textContent = descricao || 'Sem descrição';
-        }
-
-        function fecharModalDetalhes() {
-            document.getElementById('modalDetalhes').style.display = 'none';
         }
 
         // Fechar modais ao clicar fora (exceto chat que tem controle próprio)
@@ -4048,6 +4420,37 @@
         function fecharModalDetalhes() {
             document.getElementById('modalDetalhes').style.display = 'none';
         }
+
+        // Atalhos: Esc fecha o que estiver aberto por cima; "/" leva para a busca.
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modais = Array.from(document.querySelectorAll('.modal')).filter(m => m.style.display === 'flex');
+                if (modais.length) { modais[modais.length - 1].style.display = 'none'; return; }
+                if (document.querySelector('.ca-menu.open')) { fecharMenusCa(); return; }
+                const busca = document.getElementById('chamadosBusca');
+                if (document.activeElement === busca && busca.value) { busca.value = ''; debounceBusca(''); }
+                return;
+            }
+            const digitando = /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable;
+            if (event.key === '/' && !digitando && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+                const busca = document.getElementById('chamadosBusca');
+                busca?.focus();
+                busca?.select();
+            }
+        });
+
+        // Ao abrir um modal, o cursor já vai para o primeiro campo.
+        document.querySelectorAll('.modal').forEach((modal) => {
+            new MutationObserver(() => {
+                const aberto = modal.style.display === 'flex';
+                if (aberto && !modal.__aberto) {
+                    const campo = modal.querySelector('textarea, select, input:not([type="hidden"])');
+                    if (campo) setTimeout(() => campo.focus(), 30);
+                }
+                modal.__aberto = aberto;
+            }).observe(modal, { attributes: true, attributeFilter: ['style'] });
+        });
 
         // Event delegation para botões de detalhes
         document.addEventListener('click', function(event) {
